@@ -1,4 +1,4 @@
-name: Build and Release SA-RP Linggo
+name: Build and Release SA:RP Linggo Next
 
 on:
   push:
@@ -30,28 +30,24 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build Executable with PyInstaller
-        run: |
-          pyinstaller --noconfirm --onedir --windowed --name "SA-RP Linggo" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
-
-      - name: Create Portable Zip
-        shell: pwsh
-        run: |
-          Compress-Archive -Path dist\"SA-RP Linggo"\* -DestinationPath "SA-RP-Linggo-Windows.zip"
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SA-RP-Linggo-Windows
-          path: SA-RP-Linggo-Windows.zip
-
-      - name: Generate Release Tag and Title
+      - name: Generate Release Tag and Date
         id: vars
         shell: bash
         run: |
           BUILD_DATE=$(date +'%Y%m%d')
           echo "tag=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "title=Release ${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "filename=SARP-Linggo-Next-${BUILD_DATE}.exe" >> $GITHUB_OUTPUT
+
+      - name: Build Standalone OneFile Executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name "SARP-Linggo-Next-${{ steps.vars.outputs.tag }}" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SARP-Linggo-Next-${{ steps.vars.outputs.tag }}
+          path: dist/SARP-Linggo-Next-${{ steps.vars.outputs.tag }}.exe
 
       - name: Create or Update GitHub Release
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
@@ -59,7 +55,7 @@ jobs:
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
           name: ${{ steps.vars.outputs.title }}
-          files: SA-RP-Linggo-Windows.zip
+          files: dist/SARP-Linggo-Next-${{ steps.vars.outputs.tag }}.exe
           draft: false
           prerelease: false
           generate_release_notes: true

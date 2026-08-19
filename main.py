@@ -19,10 +19,10 @@ mutex_handle = None
 
 
 def acquire_single_instance_lock():
-    """Prevents multiple instances of SA-RP Linggo from running simultaneously."""
+    """Prevents multiple instances of SA:RP Linggo Next from running simultaneously."""
     global mutex_handle
     if os.name == 'nt':
-        mutex_name = 'Global\\SARPLinggoSingleInstanceMutex'
+        mutex_name = 'Global\\SARPLinggoNextSingleInstanceMutex'
         kernel32 = ctypes.windll.kernel32
         mutex_handle = kernel32.CreateMutexW(None, False, mutex_name)
         last_error = kernel32.GetLastError()
@@ -33,21 +33,21 @@ def acquire_single_instance_lock():
 
 
 def main():
-    print('[SA-RP Linggo] Starting overlay application...', flush=True)
+    print('[SA:RP Linggo Next] Starting overlay application...', flush=True)
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
     app = QApplication(sys.argv)
-    app.setApplicationName('SA-RP Linggo')
+    app.setApplicationName('SA:RP Linggo Next')
     app.setQuitOnLastWindowClosed(False)
 
     if not acquire_single_instance_lock():
-        print('[SA-RP Linggo] Another instance is already running!', flush=True)
+        print('[SA:RP Linggo Next] Another instance is already running!', flush=True)
         QMessageBox.warning(
             None,
-            'SA-RP Linggo Sudah Berjalan',
-            'Aplikasi SA-RP Linggo sudah berjalan di latar belakang (Background)!\n\nSilakan cek ikon System Tray di kanan bawah taskbar.'
+            'SA:RP Linggo Next Sudah Berjalan',
+            'Aplikasi SA:RP Linggo Next sudah berjalan di latar belakang (Background)!\n\nSilakan cek ikon System Tray di kanan bawah taskbar.'
         )
         sys.exit(0)
 
@@ -151,9 +151,9 @@ def main():
                 h_press = keyboard.on_press_key(hk, hotkey_notifier.on_key_press, suppress=False)
                 h_release = keyboard.on_release_key(hk, hotkey_notifier.on_key_release, suppress=False)
                 current_toggle_hooks = [h_press, h_release]
-                print(f"[SA-RP Linggo] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
+                print(f"[SA:RP Linggo Next] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
             except Exception as e:
-                print(f"[SA-RP Linggo] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
+                print(f"[SA:RP Linggo Next] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
 
     update_visibility_hotkey()
 
@@ -186,7 +186,7 @@ def main():
     overlay.settings_saved_signal.connect(on_settings_updated)
 
     def cleanup():
-        print('[SA-RP Linggo] Shutting down application cleanly...', flush=True)
+        print('[SA:RP Linggo Next] Shutting down application cleanly...', flush=True)
         try:
             for h in current_toggle_hooks:
                 try:
@@ -201,7 +201,7 @@ def main():
             os._exit(0)
 
     app.aboutToQuit.connect(cleanup)
-    print('[SA-RP Linggo] Application started successfully! Overlay is active.', flush=True)
+    print('[SA:RP Linggo Next] Application started successfully! Overlay is active.', flush=True)
     sys.exit(app.exec())
 
 

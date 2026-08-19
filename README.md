@@ -1,4 +1,4 @@
-# SA-RP Linggo
+# SA:RP Linggo Next
 
 [![Build & Release](https://github.com/AzeoLXC/SARP-Linggo-Next/actions/workflows/build.yml/badge.svg)](https://github.com/AzeoLXC/SARP-Linggo-Next/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -10,7 +10,7 @@
 <a name="english"></a>
 ## English
 
-SA-RP Linggo is an open-source, real-time AI translation overlay application designed for GTA San Andreas Multiplayer (SA-MP) and CodSMP players. It provides instantaneous translation of roleplay interactions (Inbound chatlog and Outbound clipboard/voice) with contextual slang translation.
+SA:RP Linggo Next is an open-source, real-time AI translation overlay application designed for GTA San Andreas Multiplayer (SA-MP) and CodSMP players. It provides instantaneous translation of roleplay interactions (Inbound chatlog and Outbound clipboard/voice) with contextual slang translation.
 
 ### Key Features
 
@@ -45,17 +45,17 @@ python main.py
 
 Run the following command on Windows:
 ```bash
-pyinstaller --noconfirm --onedir --windowed --name "SA-RP Linggo" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
+pyinstaller --noconfirm --onefile --windowed --name "SARP-Linggo-Next" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
 ```
 
-The compiled binary will be located in `dist/SA-RP Linggo/`.
+The compiled binary will be located in `dist/SARP-Linggo-Next.exe`.
 
 ### CI / CD (GitHub Actions)
 
 The repository includes `.github/workflows/build.yml` to:
-- Automatically compile the Windows binary on push to `main`.
-- Upload the compiled archive as a workflow artifact.
-- Publish a release asset when a git tag is created (e.g. `v1.0.0`).
+- Automatically compile the single Windows executable on push to `main`.
+- Upload the standalone `.exe` as a workflow artifact.
+- Publish a release asset with name format `SARP-Linggo-Next-<YYYYMMDD>.exe`.
 
 ### Usage & Keybindings
 
@@ -77,7 +77,7 @@ The repository includes `.github/workflows/build.yml` to:
 <a name="bahasa-indonesia"></a>
 ## Bahasa Indonesia
 
-SA-RP Linggo adalah aplikasi overlay terjemahan real-time berbasis AI untuk pemain GTA San Andreas Multiplayer (SA-MP) dan CodSMP. Menerjemahkan percakapan Roleplay (Inbound Chatlog dan Outbound Clipboard/Voice) secara instan.
+SA:RP Linggo Next adalah aplikasi overlay terjemahan real-time berbasis AI untuk pemain GTA San Andreas Multiplayer (SA-MP) dan CodSMP. Menerjemahkan percakapan Roleplay (Inbound Chatlog dan Outbound Clipboard/Voice) secara instan.
 
 ### Fitur Utama
 
@@ -112,17 +112,17 @@ python main.py
 
 Jalankan perintah berikut pada terminal Windows:
 ```bash
-pyinstaller --noconfirm --onedir --windowed --name "SA-RP Linggo" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
+pyinstaller --noconfirm --onefile --windowed --name "SARP-Linggo-Next" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
 ```
 
-File output `.exe` akan tersedia di direktori `dist/SA-RP Linggo/`.
+File output `.exe` akan tersedia di direktori `dist/SARP-Linggo-Next.exe`.
 
 ### Integrasi CI / CD (GitHub Actions)
 
 Repositori ini menyertakan alur kerja otomasi di `.github/workflows/build.yml`:
-- Mengompilasi executable Windows secara otomatis setiap ada push ke branch `main`.
-- Menyimpan hasil kompilasi ke artifact zip.
-- Merilis paket instalasi secara otomatis saat pembuatan tag rilis baru (contoh: `v1.0.0`).
+- Mengompilasi executable Windows tunggal secara otomatis setiap ada push ke branch `main`.
+- Menyimpan hasil executable ke artifact.
+- Merilis file instalasi `SARP-Linggo-Next-<YYYYMMDD>.exe` secara otomatis.
 
 ### Panduan Penggunaan
 

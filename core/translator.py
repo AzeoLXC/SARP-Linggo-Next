@@ -91,7 +91,7 @@ class GroqTranslator(QObject):
             headers = {
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
-                "User-Agent": "SA-RP-Linggo/1.0"
+                "User-Agent": "SARP-Linggo-Next/1.0"
             }
             payload = {
                 "model": active_model,
@@ -179,7 +179,7 @@ class GroqTranslator(QObject):
         for key in keys:
             headers = {
                 "Authorization": f"Bearer {key}",
-                "User-Agent": "SA-RP-Linggo/1.0"
+                "User-Agent": "SARP-Linggo-Next/1.0"
             }
             files = {
                 'file': ('speech.wav', audio_bytes, 'audio/wav'),
@@ -214,7 +214,7 @@ class GroqTranslator(QObject):
             headers = {
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
-                "User-Agent": "SA-RP-Linggo/1.0"
+                "User-Agent": "SARP-Linggo-Next/1.0"
             }
             payload = {
                 "model": active_model,

@@ -154,7 +154,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config = config_manager
         self.translator = translator
-        self.setWindowTitle("SA-RP Linggo Settings")
+        self.setWindowTitle("SA:RP Linggo Next Settings")
         self.setWindowIcon(get_svg_icon("settings", size=24))
         self.resize(480, 460)
         self.init_ui()
@@ -339,7 +339,7 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
 
         # Credit label
-        credit_label = QLabel("SA-RP Linggo • Open Source (MIT) • Free for all players")
+        credit_label = QLabel("SA:RP Linggo Next • Open Source (MIT) • Free for all players")
         credit_label.setStyleSheet("color: #64748B; font-size: 10px; margin-top: 6px;")
         credit_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(credit_label)
@@ -480,7 +480,7 @@ class OverlayWindow(QWidget):
         logo_label = QLabel()
         logo_label.setPixmap(get_svg_icon("app_logo", size=18).pixmap(18, 18))
         
-        title_label = QLabel("SA-RP LINGGO")
+        title_label = QLabel("SA:RP LINGGO NEXT")
         title_label.setObjectName("AppTitle")
 
         self.status_label = QLabel("Active")
@@ -599,7 +599,7 @@ class OverlayWindow(QWidget):
         try:
             self.tray_icon = QSystemTrayIcon(self)
             self.tray_icon.setIcon(create_app_icon())
-            self.tray_icon.setToolTip("SA-RP Linggo Overlay")
+            self.tray_icon.setToolTip("SA:RP Linggo Next Overlay")
             
             tray_menu = QMenu()
             
@@ -642,7 +642,7 @@ class OverlayWindow(QWidget):
                 self.hide()
                 if hasattr(self, 'tray_icon'):
                     self.tray_icon.showMessage(
-                        "SA-RP Linggo",
+                        "SA:RP Linggo Next",
                         "Overlay tersembunyi (Total Hide).\nTekan hotkey atau klik tray icon untuk memunculkan kembali.",
                         QSystemTrayIcon.MessageIcon.Information,
                         2000
