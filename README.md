@@ -1,146 +1,94 @@
 # SA:RP Linggo Next
 
 [![Build & Release](https://github.com/AzeoLXC/SARP-Linggo-Next/actions/workflows/build.yml/badge.svg)](https://github.com/AzeoLXC/SARP-Linggo-Next/actions/workflows/build.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[English](#english)** | **[Bahasa Indonesia](#bahasa-indonesia)**
+English | [Bahasa Indonesia](README-id.md)
 
 ---
 
-<a name="english"></a>
-## English
+SA:RP Linggo Next is an open-source real-time translation overlay designed for GTA San Andreas Multiplayer (SA-MP) and CodSMP roleplay environments. It intercepts incoming roleplay dialogues and outbound clipboard/voice inputs, providing low-latency contextual street slang translation powered by Groq API (`openai/gpt-oss-120b`).
 
-SA:RP Linggo Next is an open-source, real-time AI translation overlay application designed for GTA San Andreas Multiplayer (SA-MP) and CodSMP players. It provides instantaneous translation of roleplay interactions (Inbound chatlog and Outbound clipboard/voice) with contextual slang translation.
+## Features
 
-### Key Features
+- **Sub-second Inference**: High-throughput translation engine powered by Groq API.
+- **Log Source Detection**: Automatically monitors active logs across CodSMP (`/logs/*.txt`) and standard SA-MP (`chatlog.txt`).
+- **Contextual Slang Handling**: Translates Indonesian colloquialisms into natural American roleplay slang without word filtering.
+- **Inbound Stream**: Filters and renders IC chat, `/me`, and `/do` actions onto a transparent HUD overlay.
+- **Outbound Stream**: Intercepts Indonesian clipboard entries (`CTRL+C`) and replaces them with English translations ready for in-game input (`CTRL+V`).
+- **Voice-to-Text Pipeline**: Captures push-to-talk microphone audio, transcribes via Whisper API, and injects translations into the clipboard.
+- **HUD Interface**: Frameless glassmorphic Qt overlay with click-through lock mode (`ALT+L`) and global toggle hotkey (`F7`).
+- **Zero Lock-in**: Fully open source under MIT; no HWID checks or licensing restrictions.
 
-- **AI Engine (openai/gpt-oss-120b)**: Low-latency translation via Groq API.
-- **CodSMP and Standard SA-MP Detection**: Automatic detection of logs in `/logs/` directory or default `chatlog.txt`.
-- **Uncensored Roleplay Slang Translation**: Preserves authentic street slang without word censorship.
-- **Inbound Live Feed**: Displays IC chat, `/me`, and `/do` directly on the overlay.
-- **Outbound Translator (Indonesian to English)**: Translates copied text (`CTRL+C`) and automatically copies output for in-game pasting (`CTRL+V`).
-- **Voice-to-Text Outbound**: Voice input support via microphone with customizable hotkeys.
-- **Glassmorphism HUD**: Frameless, transparent overlay with click-through support.
-- **Fully Open Source**: Free of license restrictions and hardware ID locks.
+## Architecture
 
-### Running from Source
+```
+SARP-Linggo-Next/
+├── core/
+│   ├── chat_listener.py      # Chatlog file monitoring & regex parsing thread
+│   ├── clipboard_listener.py # Windows clipboard polling & translation worker
+│   ├── config.py             # JSON configuration manager & path resolver
+│   ├── translator.py         # Groq API client & prompt orchestration
+│   └── voice_listener.py     # Continuous audio capture & Whisper transcription
+├── ui/
+│   ├── icons.py              # SVG vector icon assets
+│   ├── overlay.py            # Main PyQt6 transparent HUD & settings dialog
+│   └── styles.py             # QSS stylesheet definitions
+├── .github/workflows/
+│   └── build.yml             # GitHub Actions standalone CI/CD pipeline
+├── main.py                   # Entry point & single-instance mutex controller
+├── requirements.txt          # Python runtime dependencies
+└── LICENSE                   # MIT License
+```
 
-#### Prerequisites
-- Python 3.10 - 3.12
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10 to 3.12 (64-bit recommended)
 - Git
 
-#### Installation
+### Installation
+
 ```bash
 git clone https://github.com/AzeoLXC/SARP-Linggo-Next.git
 cd SARP-Linggo-Next
 pip install -r requirements.txt
 ```
 
-#### Run Application
+### Running Locally
+
 ```bash
 python main.py
 ```
 
-### Build Standalone Executable (PyInstaller)
+## Build Standalone Binary
 
-Run the following command on Windows:
+To produce a single-file executable using PyInstaller:
+
 ```bash
 pyinstaller --noconfirm --onefile --windowed --name "SARP-Linggo-Next" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
 ```
 
-The compiled binary will be located in `dist/SARP-Linggo-Next.exe`.
+The output binary will be generated at `dist/SARP-Linggo-Next.exe`.
 
-### CI / CD (GitHub Actions)
+## Keybindings
 
-The repository includes `.github/workflows/build.yml` to:
-- Automatically compile the single Windows executable on push to `main`.
-- Upload the standalone `.exe` as a workflow artifact.
-- Publish a release asset with name format `SARP-Linggo-Next-<YYYYMMDD>.exe`.
+| Keybinding | Action |
+| :--- | :--- |
+| `ALT + L` | Toggle Click-Through Mode (pass mouse clicks directly to the game) |
+| `F7` | Toggle Overlay Visibility (Total Hide / Show) |
+| `F4` | Push-to-Talk Voice Input (Hold to record, release to translate) |
+| `CTRL + C` | Copy Indonesian text to trigger outbound translation |
+| `CTRL + V` | Paste translated English text into game chatbox |
 
-### Usage & Keybindings
+## Configuration
 
-1. **Configuration**:
-   - Obtain a Groq API key from console.groq.com.
-   - Open Settings in the overlay and enter the key.
-   - Set the chatlog path or enable CodSMP detection.
-   - Click Save & Apply.
+1. Launch the application and click the **Settings** (gear icon) on the overlay header.
+2. Enter your Groq API Key (obtainable at [console.groq.com](https://console.groq.com/keys)).
+3. Verify or manually set your SA-MP `chatlog.txt` path (or enable the CodSMP option).
+4. Click **Save & Apply**.
 
-2. **Hotkeys**:
-   - `ALT + L` : Toggle Lock Mode (Click-Through mouse pass-through).
-   - `F7` : Toggle Overlay Visibility.
-   - `F4` : Push to Talk (Voice Input).
-   - `CTRL + C` : Translate copied clipboard text.
-   - `CTRL + V` : Paste translated output into chatbox.
+## License
 
----
-
-<a name="bahasa-indonesia"></a>
-## Bahasa Indonesia
-
-SA:RP Linggo Next adalah aplikasi overlay terjemahan real-time berbasis AI untuk pemain GTA San Andreas Multiplayer (SA-MP) dan CodSMP. Menerjemahkan percakapan Roleplay (Inbound Chatlog dan Outbound Clipboard/Voice) secara instan.
-
-### Fitur Utama
-
-- **AI Engine (openai/gpt-oss-120b)**: Kecepatan respon sub-detik melalui Groq API.
-- **Deteksi Otomatis CodSMP dan SA-MP Standar**: Mendeteksi file log terbaru di direktori `/logs/` maupun file `chatlog.txt` standar.
-- **Uncensored Slang Translation**: Menerjemahkan istilah roleplay dan street slang secara akurat tanpa sensor kata.
-- **Inbound Live Feed**: Membaca chat IC, `/me`, dan `/do` langsung pada layar overlay game.
-- **Outbound Translator (Indonesian to English)**: Menerjemahkan teks clipboard (`CTRL+C`) dan otomatis menyalin hasil terjemahan untuk ditempelkan ke dalam game (`CTRL+V`).
-- **Voice-to-Text Outbound**: Input suara via mikrofon dengan hotkey yang dapat dikonfigurasi.
-- **Glassmorphism HUD**: Tampilan overlay frameless, transparan, serta mendukung mode kunci (Click-Through).
-- **Open Source**: Bebas lisensi pihak ketiga, tanpa pembatasan hardware ID (HWID).
-
-### Menjalankan dari Source Code
-
-#### Prasyarat
-- Python 3.10 - 3.12
-- Git
-
-#### Instalasi Dependensi
-```bash
-git clone https://github.com/AzeoLXC/SARP-Linggo-Next.git
-cd SARP-Linggo-Next
-pip install -r requirements.txt
-```
-
-#### Menjalankan Program
-```bash
-python main.py
-```
-
-### Build Executable Mandiri (PyInstaller)
-
-Jalankan perintah berikut pada terminal Windows:
-```bash
-pyinstaller --noconfirm --onefile --windowed --name "SARP-Linggo-Next" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
-```
-
-File output `.exe` akan tersedia di direktori `dist/SARP-Linggo-Next.exe`.
-
-### Integrasi CI / CD (GitHub Actions)
-
-Repositori ini menyertakan alur kerja otomasi di `.github/workflows/build.yml`:
-- Mengompilasi executable Windows tunggal secara otomatis setiap ada push ke branch `main`.
-- Menyimpan hasil executable ke artifact.
-- Merilis file instalasi `SARP-Linggo-Next-<YYYYMMDD>.exe` secara otomatis.
-
-### Panduan Penggunaan
-
-1. **Konfigurasi API Key**:
-   - Dapatkan Groq API Key di console.groq.com.
-   - Buka menu Settings di overlay aplikasi, lalu masukkan API Key.
-   - Tentukan lokasi file chatlog atau aktifkan opsi CodSMP.
-   - Klik Save & Apply.
-
-2. **Shortcut Keyboard**:
-   - `ALT + L` : Toggle Lock Mode (Click-Through mouse tembus ke layar game).
-   - `F7` : Sembunyikan / Tampilkan Overlay.
-   - `F4` : Push to Talk (Input Suara).
-   - `CTRL + C` : Terjemahkan teks yang disalin.
-   - `CTRL + V` : Tempel teks hasil terjemahan ke chatbox.
-
----
-
-## License / Lisensi
-
-Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
+This project is licensed under the [MIT License](LICENSE).
