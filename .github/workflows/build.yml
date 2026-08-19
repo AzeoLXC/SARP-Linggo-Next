@@ -1,0 +1,53 @@
+name: Build SA-RP Linggo Executable
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --name "SA-RP Linggo" --collect-all PyQt6 --hidden-import=sounddevice --hidden-import=_sounddevice --hidden-import=numpy --hidden-import=requests --hidden-import=keyboard --hidden-import=pyperclip main.py
+
+      - name: Create Portable Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\"SA-RP Linggo"\* -DestinationPath "SA-RP-Linggo-Windows.zip"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SA-RP-Linggo-Windows
+          path: SA-RP-Linggo-Windows.zip
+
+      - name: Release Executable (on Tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SA-RP-Linggo-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
