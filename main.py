@@ -19,7 +19,6 @@ mutex_handle = None
 
 
 def acquire_single_instance_lock():
-    """Prevents multiple instances of SA:RP Linggo Next from running simultaneously."""
     global mutex_handle
     if os.name == 'nt':
         mutex_name = 'Global\\SARPLinggoNextSingleInstanceMutex'
@@ -33,21 +32,18 @@ def acquire_single_instance_lock():
 
 
 def main():
-    print('[SA:RP Linggo Next] Starting overlay application...', flush=True)
-
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
     app = QApplication(sys.argv)
-    app.setApplicationName('SA:RP Linggo Next')
+    app.setApplicationName('SARP Linggo Next')
     app.setQuitOnLastWindowClosed(False)
 
     if not acquire_single_instance_lock():
-        print('[SA:RP Linggo Next] Another instance is already running!', flush=True)
         QMessageBox.warning(
             None,
-            'SA:RP Linggo Next Sudah Berjalan',
-            'Aplikasi SA:RP Linggo Next sudah berjalan di latar belakang (Background)!\n\nSilakan cek ikon System Tray di kanan bawah taskbar.'
+            'Already Running',
+            'SARP Linggo Next is already running in the background.'
         )
         sys.exit(0)
 
@@ -91,21 +87,21 @@ def main():
 
     def on_listener_status(status_msg):
         if 'Monitoring' in status_msg:
-            status_text = '🔒 Click-Through' if overlay.is_locked else '🟢 Move Mode'
+            status_text = 'Locked' if overlay.is_locked else 'Active'
             color = '#EF4444' if overlay.is_locked else '#10B981'
             overlay.set_status(status_text, color)
             return
         if 'Error' in status_msg or 'not found' in status_msg.lower():
-            overlay.set_status('⚠️ Check Chatlog Path', '#F59E0B')
+            overlay.set_status('Check Log Path', '#F59E0B')
             return
-        overlay.set_status(status_msg, '#A0AEC0')
+        overlay.set_status(status_msg, '#94A3B8')
 
     def on_outbound_translated(item_data):
         overlay.add_chat_card(item_data)
         rpd_rem = item_data.get('rpd_remaining')
         rpd_lim = item_data.get('rpd_limit')
         rpd_str = f' | RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}' if rpd_rem is not None else ''
-        overlay.set_status(f'● Outbound Ready! (Press CTRL+V){rpd_str}', '#06B6D4')
+        overlay.set_status(f'Copied to clipboard{rpd_str}', '#2DD4BF')
 
     def on_voice_status(status_msg, color_hex):
         overlay.set_status(status_msg, color_hex)
@@ -151,9 +147,8 @@ def main():
                 h_press = keyboard.on_press_key(hk, hotkey_notifier.on_key_press, suppress=False)
                 h_release = keyboard.on_release_key(hk, hotkey_notifier.on_key_release, suppress=False)
                 current_toggle_hooks = [h_press, h_release]
-                print(f"[SA:RP Linggo Next] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
             except Exception as e:
-                print(f"[SA:RP Linggo Next] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
+                print(f"[Main] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
 
     update_visibility_hotkey()
 
@@ -186,7 +181,6 @@ def main():
     overlay.settings_saved_signal.connect(on_settings_updated)
 
     def cleanup():
-        print('[SA:RP Linggo Next] Shutting down application cleanly...', flush=True)
         try:
             for h in current_toggle_hooks:
                 try:
@@ -201,7 +195,6 @@ def main():
             os._exit(0)
 
     app.aboutToQuit.connect(cleanup)
-    print('[SA:RP Linggo Next] Application started successfully! Overlay is active.', flush=True)
     sys.exit(app.exec())
 
 

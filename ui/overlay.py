@@ -1,4 +1,3 @@
-import os
 import sys
 import ctypes
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QTimer, QSize
@@ -7,25 +6,19 @@ from PyQt6.QtWidgets import (
     QScrollArea, QDialog, QLineEdit, QComboBox, QSpinBox, QFileDialog,
     QCheckBox, QSlider, QMessageBox, QSystemTrayIcon, QMenu, QSizeGrip
 )
-from PyQt6.QtGui import QIcon, QAction, QPixmap, QColor, QPainter, QFont
+from PyQt6.QtGui import QAction
 from ui.styles import MAIN_STYLE
 from ui.icons import get_svg_icon
 
-# Win32 API Constants
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED = 0x00080000
 
 def create_app_icon():
-    """Generates vector app icon for window taskbar and tray."""
     return get_svg_icon("app_logo", size=32)
 
 
 class ChatItemCard(QFrame):
-    """
-    Compact SAMP Chatlog Style Card.
-    Presents original chat line and translated text in clean, compact SAMP game-chat format.
-    """
     def __init__(self, item_data, font_size=11):
         super().__init__()
         self.setObjectName("ChatItemCard")
@@ -46,27 +39,24 @@ class ChatItemCard(QFrame):
 
         rpd_rem = item_data.get("rpd_remaining")
         rpd_lim = item_data.get("rpd_limit")
-        rpd_tag = f"  <span style='color: #64748B; font-size: 9px; font-weight: bold;'>[RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}]</span>" if rpd_rem is not None else ""
+        rpd_tag = f"  <span style='color: #64748B; font-size: 9px; font-weight: 500;'>[RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}]</span>" if rpd_rem is not None else ""
 
-        # Line 1: Original SAMP Line / Voice Transcript
         if chat_type == "OUTBOUND":
-            style_name = item_data.get("style", "Standard English")
-            orig_text = f"{ts_str}[OUTBOUND ({style_name.upper()})] {item_data.get('original', '')}"
-            trans_text = f"➔ {item_data.get('translated', '')}  📌 [COPIED! PRESS CTRL+V]{rpd_tag}"
+            orig_text = f"{ts_str}[Outbound] {item_data.get('original', '')}"
+            trans_text = f"-> {item_data.get('translated', '')}{rpd_tag}"
         elif chat_type == "OUTBOUND_VOICE":
-            style_name = item_data.get("style", "Standard English")
-            orig_val = item_data.get("original", "").replace("🎙️ ", "").strip()
-            orig_text = f"{ts_str}🎙️ Transkrip Suara (ID): \"{orig_val}\""
-            trans_text = f"➔ {speaker} says: {translated_content}  📌 [COPIED! PRESS CTRL+V]{rpd_tag}"
+            orig_val = item_data.get("original", "").strip()
+            orig_text = f"{ts_str}[Voice] {orig_val}"
+            trans_text = f"-> {speaker}: {translated_content}{rpd_tag}"
         elif chat_type == "ME":
             orig_text = f"{ts_str}* {speaker} {orig_content}"
-            trans_text = f"➔ * {speaker} {translated_content}{rpd_tag}"
+            trans_text = f"-> * {speaker} {translated_content}{rpd_tag}"
         elif chat_type == "DO":
             orig_text = f"{ts_str}* {orig_content} (( {speaker} ))"
-            trans_text = f"➔ * {translated_content} (( {speaker} )){rpd_tag}"
+            trans_text = f"-> * {translated_content} (( {speaker} )){rpd_tag}"
         else:
-            orig_text = f"{ts_str}{speaker} says: {orig_content}"
-            trans_text = f"➔ {speaker} says: {translated_content}{rpd_tag}"
+            orig_text = f"{ts_str}{speaker}: {orig_content}"
+            trans_text = f"-> {speaker}: {translated_content}{rpd_tag}"
 
         orig_label = QLabel(orig_text)
         orig_label.setProperty("class", "OrigLine")
@@ -83,15 +73,15 @@ class ChatItemCard(QFrame):
         trans_label.setWordWrap(True)
         trans_label.setStyleSheet(f"font-size: {font_size}px;")
 
-        copy_btn = QPushButton("📋 Salin")
-        copy_btn.setToolTip("Salin teks terjemahan ini ke Clipboard (CTRL+V)")
+        copy_btn = QPushButton("Copy")
+        copy_btn.setToolTip("Copy translation to clipboard")
         copy_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0284C7;
                 color: #FFFFFF;
                 font-size: 10px;
-                font-weight: bold;
-                padding: 2px 8px;
+                font-weight: 500;
+                padding: 2px 6px;
                 border-radius: 3px;
                 border: none;
             }
@@ -104,32 +94,33 @@ class ChatItemCard(QFrame):
         """)
 
         clean_text_to_copy = item_data.get("translated", "")
+
         def do_copy():
             from PyQt6.QtWidgets import QApplication
             from PyQt6.QtGui import QClipboard
             cb = QApplication.clipboard()
             cb.setText(clean_text_to_copy, QClipboard.Mode.Clipboard)
-            copy_btn.setText("✓ Tersalin!")
+            copy_btn.setText("Copied")
             copy_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #10B981;
                     color: #FFFFFF;
                     font-size: 10px;
-                    font-weight: bold;
-                    padding: 2px 8px;
+                    font-weight: 500;
+                    padding: 2px 6px;
                     border-radius: 3px;
                     border: none;
                 }
             """)
             QTimer.singleShot(1500, lambda: (
-                copy_btn.setText("📋 Salin"),
+                copy_btn.setText("Copy"),
                 copy_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #0284C7;
                         color: #FFFFFF;
                         font-size: 10px;
-                        font-weight: bold;
-                        padding: 2px 8px;
+                        font-weight: 500;
+                        padding: 2px 6px;
                         border-radius: 3px;
                         border: none;
                     }
@@ -149,12 +140,11 @@ class ChatItemCard(QFrame):
 
 
 class SettingsDialog(QDialog):
-    """Dialog to configure API Key, Chatlog Path, and UI preferences."""
     def __init__(self, config_manager, translator=None, parent=None):
         super().__init__(parent)
         self.config = config_manager
         self.translator = translator
-        self.setWindowTitle("SA:RP Linggo Next Settings")
+        self.setWindowTitle("Settings")
         self.setWindowIcon(get_svg_icon("settings", size=24))
         self.resize(480, 460)
         self.init_ui()
@@ -164,51 +154,44 @@ class SettingsDialog(QDialog):
         layout.setSpacing(12)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        # 1. Groq API Key
-        layout.addWidget(QLabel("<b>Groq AI API Key:</b>"))
+        layout.addWidget(QLabel("<b>Groq API Key:</b>"))
         key_layout = QHBoxLayout()
         self.key_input = QLineEdit(self.config.get("groq_api_key", ""))
-        self.key_input.setPlaceholderText("Enter your Groq API Key (gsk_...)")
-        
-        detect_key_btn = QPushButton("Auto-Detect Key")
-        detect_key_btn.setIcon(get_svg_icon("settings", size=16))
-        detect_key_btn.setStyleSheet("background-color: #2D313B; color: #38BDF8; font-weight: 600; padding: 5px 10px; border: 1px solid #373C47; border-radius: 4px;")
+        self.key_input.setPlaceholderText("Enter API key (gsk_...)")
+
+        detect_key_btn = QPushButton("Auto-Detect")
+        detect_key_btn.setStyleSheet("background-color: #1E293B; color: #38BDF8; font-weight: 500; padding: 5px 10px; border: 1px solid #334155; border-radius: 4px;")
         detect_key_btn.clicked.connect(self.auto_detect_key)
-        
+
         key_layout.addWidget(self.key_input)
         key_layout.addWidget(detect_key_btn)
         layout.addLayout(key_layout)
 
-        # 2. SAMP Chatlog Path
-        layout.addWidget(QLabel("<b>SAMP Chatlog File Path:</b>"))
+        layout.addWidget(QLabel("<b>Chatlog Path:</b>"))
         path_layout = QHBoxLayout()
         self.path_input = QLineEdit(self.config.get("chatlog_path", ""))
         self.path_input.setPlaceholderText("Path to chatlog.txt")
 
         browse_btn = QPushButton("Browse...")
-        browse_btn.setStyleSheet("background-color: #2D313B; color: #F1F5F9; padding: 5px 10px; border: 1px solid #373C47; border-radius: 4px;")
+        browse_btn.setStyleSheet("background-color: #1E293B; color: #F8FAFC; padding: 5px 10px; border: 1px solid #334155; border-radius: 4px;")
         browse_btn.clicked.connect(self.browse_chatlog)
 
-        detect_path_btn = QPushButton("Auto-Detect Path")
-        detect_path_btn.setStyleSheet("background-color: #2D313B; color: #38BDF8; font-weight: 600; padding: 5px 10px; border: 1px solid #373C47; border-radius: 4px;")
+        detect_path_btn = QPushButton("Auto-Detect")
+        detect_path_btn.setStyleSheet("background-color: #1E293B; color: #38BDF8; font-weight: 500; padding: 5px 10px; border: 1px solid #334155; border-radius: 4px;")
         detect_path_btn.clicked.connect(self.auto_detect_path)
-        
+
         path_layout.addWidget(self.path_input)
         path_layout.addWidget(browse_btn)
         path_layout.addWidget(detect_path_btn)
         layout.addLayout(path_layout)
 
-        # 2b. CodSMP Option Checkbox
-        self.codsmp_check = QCheckBox("⚡ Saya Pengguna CodSMP (Otomatis Baca Log Terbaru di Folder /logs/)")
+        self.codsmp_check = QCheckBox("Track CodSMP active log files (/logs/)")
         self.codsmp_check.setChecked(self.config.get("use_codsmp", True))
-        self.codsmp_check.setStyleSheet("font-weight: bold; color: #38BDF8;")
         layout.addWidget(self.codsmp_check)
 
-        # 2c. Voice Input Checkbox & Hotkey Selector
         voice_layout = QHBoxLayout()
-        self.voice_check = QCheckBox("🎙️ Aktifkan Voice-to-Text Mic (Push-To-Talk)")
+        self.voice_check = QCheckBox("Enable push-to-talk voice input")
         self.voice_check.setChecked(self.config.get("enable_voice_input", True))
-        self.voice_check.setStyleSheet("font-weight: bold; color: #A855F7;")
 
         self.voice_hotkey_combo = QComboBox()
         self.voice_hotkey_combo.addItems(["F4", "F8", "F9", "F10", "F11", "Numpad *", "Numpad +", "Scroll Lock", "Caps Lock"])
@@ -218,18 +201,16 @@ class SettingsDialog(QDialog):
         elif current_hk == "SCROLL LOCK": current_hk = "Scroll Lock"
         elif current_hk == "CAPS LOCK": current_hk = "Caps Lock"
         self.voice_hotkey_combo.setCurrentText(current_hk if current_hk in ["F4", "F8", "F9", "F10", "F11", "Numpad *", "Numpad +", "Scroll Lock", "Caps Lock"] else "F4")
-        
+
         voice_layout.addWidget(self.voice_check)
         voice_layout.addStretch()
-        voice_layout.addWidget(QLabel("<b>Hotkey:</b>"))
+        voice_layout.addWidget(QLabel("Key:"))
         voice_layout.addWidget(self.voice_hotkey_combo)
         layout.addLayout(voice_layout)
 
-        # 2d. Toggle Visibility (Total Hide / Show) Hotkey Selector
         hide_layout = QHBoxLayout()
-        hide_label = QLabel("🙈 <b>Hotkey Total Hide / Show Overlay:</b>")
-        hide_label.setStyleSheet("color: #10B981; font-weight: bold;")
-        
+        hide_label = QLabel("Toggle visibility hotkey:")
+
         self.hide_hotkey_combo = QComboBox()
         self.hide_hotkey_combo.addItems(["F7", "F6", "F8", "F9", "F10", "F11", "F12", "Numpad -", "Numpad /"])
         current_hide_hk = self.config.get("toggle_visibility_hotkey", "f7").strip().upper()
@@ -242,12 +223,11 @@ class SettingsDialog(QDialog):
         hide_layout.addWidget(self.hide_hotkey_combo)
         layout.addLayout(hide_layout)
 
-        # 3. Model & Language
         row_layout = QHBoxLayout()
-        
+
         model_vbox = QVBoxLayout()
-        model_vbox.addWidget(QLabel("<b>AI Engine Model:</b>"))
-        engine_label = QLabel("⚡ <b>GPT OSS 120B</b> (Groq Official High-Speed Engine)")
+        model_vbox.addWidget(QLabel("<b>Model:</b>"))
+        engine_label = QLabel("GPT-OSS 120B (Groq)")
         engine_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
         model_vbox.addWidget(engine_label)
 
@@ -262,25 +242,23 @@ class SettingsDialog(QDialog):
         row_layout.addLayout(lang_vbox)
         layout.addLayout(row_layout)
 
-        # 3b. Live RPD Checker Section
         rpd_vbox = QVBoxLayout()
         rpd_hbox = QHBoxLayout()
-        self.rpd_status_label = QLabel("Sisa RPD: <b>[Klik tombol Cek Sisa RPD]</b>")
-        self.rpd_status_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
-        
-        check_rpd_btn = QPushButton("Cek Sisa RPD 🔄")
-        check_rpd_btn.setStyleSheet("background-color: #0284C7; color: #FFFFFF; font-weight: bold; padding: 5px 12px; border-radius: 4px; border: none;")
+        self.rpd_status_label = QLabel("Remaining RPD: -")
+        self.rpd_status_label.setStyleSheet("color: #94A3B8; font-size: 11px;")
+
+        check_rpd_btn = QPushButton("Check Quota")
+        check_rpd_btn.setStyleSheet("background-color: #0284C7; color: #FFFFFF; font-weight: 500; padding: 5px 12px; border-radius: 4px; border: none;")
         check_rpd_btn.clicked.connect(self.check_live_rpd)
-        
+
         rpd_hbox.addWidget(self.rpd_status_label)
         rpd_hbox.addStretch()
         rpd_hbox.addWidget(check_rpd_btn)
         rpd_vbox.addLayout(rpd_hbox)
         layout.addLayout(rpd_vbox)
 
-        # 4. Font Size & Opacity
         row2_layout = QHBoxLayout()
-        
+
         font_vbox = QVBoxLayout()
         font_vbox.addWidget(QLabel("<b>Font Size:</b>"))
         self.font_spin = QSpinBox()
@@ -289,7 +267,7 @@ class SettingsDialog(QDialog):
         font_vbox.addWidget(self.font_spin)
 
         opac_vbox = QVBoxLayout()
-        opac_vbox.addWidget(QLabel("<b>Overlay Opacity:</b>"))
+        opac_vbox.addWidget(QLabel("<b>Opacity:</b>"))
         self.opac_slider = QSlider(Qt.Orientation.Horizontal)
         self.opac_slider.setRange(20, 100)
         self.opac_slider.setValue(int(self.config.get("opacity", 0.90) * 100))
@@ -299,20 +277,17 @@ class SettingsDialog(QDialog):
         row2_layout.addLayout(opac_vbox)
         layout.addLayout(row2_layout)
 
-        # 5. Translation Automation Toggles
         trans_toggle_vbox = QVBoxLayout()
-        
-        self.chatlog_check = QCheckBox("Enable Inbound Chatlog Auto-Translation (Chatlog ➔ Overlay)")
+
+        self.chatlog_check = QCheckBox("Translate incoming chatlog (EN -> ID)")
         chatlog_active = self.config.get("auto_translate_ic", True) or self.config.get("auto_translate_me_do", True)
         self.chatlog_check.setChecked(chatlog_active)
-        self.chatlog_check.setStyleSheet("font-weight: bold; color: #10B981;")
 
-        self.outbound_check = QCheckBox("Enable Outbound Clipboard Auto-Translation (ID ➔ EN)")
+        self.outbound_check = QCheckBox("Translate outbound clipboard (ID -> EN)")
         self.outbound_check.setChecked(self.config.get("enable_clipboard_outbound", True))
-        self.outbound_check.setStyleSheet("font-weight: bold; color: #38BDF8;")
-        
+
         outbound_row = QHBoxLayout()
-        outbound_row.addWidget(QLabel("<b>Outbound English Style:</b>"))
+        outbound_row.addWidget(QLabel("<b>Outbound Style:</b>"))
         self.outbound_combo = QComboBox()
         self.outbound_combo.addItems([
             "Standard English",
@@ -320,29 +295,22 @@ class SettingsDialog(QDialog):
         ])
         self.outbound_combo.setCurrentText(self.config.get("outbound_style", "Standard English"))
         outbound_row.addWidget(self.outbound_combo)
-        
+
         trans_toggle_vbox.addWidget(self.chatlog_check)
         trans_toggle_vbox.addWidget(self.outbound_check)
         trans_toggle_vbox.addLayout(outbound_row)
         layout.addLayout(trans_toggle_vbox)
 
-        # Buttons Save / Cancel
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        
-        save_btn = QPushButton("Save & Apply")
-        save_btn.setStyleSheet("background-color: #38BDF8; color: #0F172A; font-weight: bold; padding: 6px 16px; border-radius: 4px;")
+
+        save_btn = QPushButton("Save")
+        save_btn.setStyleSheet("background-color: #38BDF8; color: #0F172A; font-weight: 600; padding: 6px 16px; border-radius: 4px; border: none;")
         save_btn.clicked.connect(self.save_settings)
 
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setStyleSheet("background-color: #2D313B; color: #94A3B8; padding: 6px 16px; border-radius: 4px; border: 1px solid #373C47;")
+        cancel_btn.setStyleSheet("background-color: #1E293B; color: #94A3B8; padding: 6px 16px; border-radius: 4px; border: 1px solid #334155;")
         cancel_btn.clicked.connect(self.reject)
-
-        # Credit label
-        credit_label = QLabel("SA:RP Linggo Next • Open Source (MIT) • Free for all players")
-        credit_label.setStyleSheet("color: #64748B; font-size: 10px; margin-top: 6px;")
-        credit_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(credit_label)
 
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
@@ -350,33 +318,33 @@ class SettingsDialog(QDialog):
 
     def check_live_rpd(self):
         if not self.translator:
-            self.rpd_status_label.setText("Sisa RPD: <b style='color: #EF4444;'>Engine Belum Siap</b>")
+            self.rpd_status_label.setText("Remaining RPD: <span style='color: #EF4444;'>Engine not ready</span>")
             return
 
         api_key = self.key_input.text().strip()
         if not api_key:
-            self.rpd_status_label.setText("Sisa RPD: <b style='color: #EF4444;'>API Key Belum Diisi</b>")
+            self.rpd_status_label.setText("Remaining RPD: <span style='color: #EF4444;'>API key missing</span>")
             return
 
         self.translator.set_api_key(api_key)
-        self.rpd_status_label.setText("<i>Memeriksa sisa RPD ke Groq...</i>")
+        self.rpd_status_label.setText("Checking...")
         from PyQt6.QtWidgets import QApplication
         QApplication.processEvents()
 
         success, msg, rem, lim, rst = self.translator.check_rpd_quota()
         if success:
             lim_val = lim if lim else 1000
-            self.rpd_status_label.setText(f"Sisa RPD: <b style='color: #22C55E;'>{rem} / {lim_val}</b> (Reset: {rst if rst else 'Hari ini'})")
+            self.rpd_status_label.setText(f"Remaining RPD: <span style='color: #10B981; font-weight: 600;'>{rem} / {lim_val}</span> (Reset: {rst if rst else 'Today'})")
         else:
-            self.rpd_status_label.setText(f"Sisa RPD: <b style='color: #EF4444;'>{msg}</b>")
+            self.rpd_status_label.setText(f"Remaining RPD: <span style='color: #EF4444;'>{msg}</span>")
 
     def auto_detect_key(self):
         detected = self.config.detect_groq_api_key()
         if detected:
             self.key_input.setText(detected)
-            QMessageBox.information(self, "Success", "Found Groq API Key!")
+            QMessageBox.information(self, "API Key", "Groq API key detected.")
         else:
-            QMessageBox.warning(self, "Not Found", "Could not automatically find Groq API key file in Downloads.")
+            QMessageBox.warning(self, "API Key", "No API key found in Downloads folder.")
 
     def auto_detect_path(self):
         detected = self.config.detect_chatlog_path()
@@ -384,7 +352,7 @@ class SettingsDialog(QDialog):
             self.path_input.setText(detected)
 
     def browse_chatlog(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Select SAMP chatlog.txt", "", "Text Files (*.txt);;All Files (*)")
+        filename, _ = QFileDialog.getOpenFileName(self, "Select chatlog.txt", "", "Text Files (*.txt);;All Files (*)")
         if filename:
             self.path_input.setText(filename)
 
@@ -406,7 +374,7 @@ class SettingsDialog(QDialog):
         }
         selected_hk = hk_map.get(self.voice_hotkey_combo.currentText(), "f4")
         self.config.set("voice_hotkey", selected_hk)
-        
+
         hide_hk_map = {
             "F7": "f7", "F6": "f6", "F8": "f8", "F9": "f9", "F10": "f10", "F11": "f11", "F12": "f12",
             "Numpad -": "numpad_-", "Numpad /": "numpad_/"
@@ -420,10 +388,6 @@ class SettingsDialog(QDialog):
 
 
 class OverlayWindow(QWidget):
-    """
-    Main Frameless Modern Glassmorphism Overlay Widget for SA-RP Linggo.
-    Supports edge window resizing, auto-scrolling, and SAMP chatlog styling.
-    """
     settings_saved_signal = pyqtSignal()
     RESIZE_MARGIN = 8
 
@@ -459,7 +423,6 @@ class OverlayWindow(QWidget):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Central Glass Widget
         self.central_widget = QWidget()
         self.central_widget.setObjectName("CentralWidget")
         self.central_widget.setStyleSheet(MAIN_STYLE)
@@ -469,72 +432,63 @@ class OverlayWindow(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Header Bar
         header_frame = QFrame()
         header_frame.setObjectName("HeaderFrame")
         header_layout = QHBoxLayout(header_frame)
         header_layout.setContentsMargins(8, 4, 8, 4)
         header_layout.setSpacing(6)
 
-        # Title with Vector SVG Logo
         logo_label = QLabel()
-        logo_label.setPixmap(get_svg_icon("app_logo", size=18).pixmap(18, 18))
-        
-        title_label = QLabel("SA:RP LINGGO NEXT")
+        logo_label.setPixmap(get_svg_icon("app_logo", size=16).pixmap(16, 16))
+
+        title_label = QLabel("SARP LINGGO")
         title_label.setObjectName("AppTitle")
 
         self.status_label = QLabel("Active")
         self.status_label.setObjectName("StatusLabel")
 
-        # Vector Icon Control Buttons
-        self.chat_toggle_btn = QPushButton("Chat: ON")
-        self.chat_toggle_btn.setToolTip("Click to toggle Inbound Chatlog Auto-Translation (ON/OFF)")
-        self.chat_toggle_btn.setProperty("class", "HeaderIconBtn")
+        self.chat_toggle_btn = QPushButton("Chat")
+        self.chat_toggle_btn.setProperty("class", "HeaderBtn")
         self.chat_toggle_btn.setObjectName("ChatToggleBtn")
-        self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: 600; min-width: 65px;")
         self.chat_toggle_btn.clicked.connect(self.toggle_chatlog_inbound)
 
-        self.clip_toggle_btn = QPushButton("Clip: ON")
-        self.clip_toggle_btn.setToolTip("Click to toggle Outbound Clipboard Auto-Translation (ON/OFF)")
-        self.clip_toggle_btn.setProperty("class", "HeaderIconBtn")
+        self.clip_toggle_btn = QPushButton("Clip")
+        self.clip_toggle_btn.setProperty("class", "HeaderBtn")
         self.clip_toggle_btn.setObjectName("ClipToggleBtn")
-        self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: 600; min-width: 65px;")
         self.clip_toggle_btn.clicked.connect(self.toggle_clipboard_outbound)
 
-        self.lock_btn = QPushButton("Move Mode")
-        self.lock_btn.setIcon(get_svg_icon("move", size=16))
-        self.lock_btn.setIconSize(QSize(14, 14))
-        self.lock_btn.setToolTip("Click to toggle Lock / Click-Through mode")
-        self.lock_btn.setProperty("class", "HeaderIconBtn")
+        self.lock_btn = QPushButton("Move")
+        self.lock_btn.setIcon(get_svg_icon("move", size=14))
+        self.lock_btn.setIconSize(QSize(12, 12))
+        self.lock_btn.setProperty("class", "HeaderBtn")
         self.lock_btn.setObjectName("LockBtn")
-        self.lock_btn.setStyleSheet("padding: 2px 8px; font-size: 10px; font-weight: 600; min-width: 80px;")
         self.lock_btn.clicked.connect(self.toggle_lock)
 
         clear_btn = QPushButton()
-        clear_btn.setIcon(get_svg_icon("clear", size=16))
+        clear_btn.setIcon(get_svg_icon("clear", size=14))
         clear_btn.setIconSize(QSize(14, 14))
-        clear_btn.setToolTip("Clear Feed")
+        clear_btn.setToolTip("Clear feed")
         clear_btn.setProperty("class", "HeaderIconBtn")
         clear_btn.clicked.connect(self.clear_feed)
 
         settings_btn = QPushButton()
-        settings_btn.setIcon(get_svg_icon("settings", size=16))
+        settings_btn.setIcon(get_svg_icon("settings", size=14))
         settings_btn.setIconSize(QSize(14, 14))
-        settings_btn.setToolTip("Open Settings")
+        settings_btn.setToolTip("Settings")
         settings_btn.setProperty("class", "HeaderIconBtn")
         settings_btn.clicked.connect(self.open_settings)
 
         collapse_btn = QPushButton()
-        collapse_btn.setIcon(get_svg_icon("minimize", size=16))
+        collapse_btn.setIcon(get_svg_icon("minimize", size=14))
         collapse_btn.setIconSize(QSize(14, 14))
-        collapse_btn.setToolTip("Minimize/Expand Feed")
+        collapse_btn.setToolTip("Collapse feed")
         collapse_btn.setProperty("class", "HeaderIconBtn")
         collapse_btn.clicked.connect(self.toggle_collapse)
 
         close_btn = QPushButton()
-        close_btn.setIcon(get_svg_icon("close", size=16))
+        close_btn.setIcon(get_svg_icon("close", size=14))
         close_btn.setIconSize(QSize(14, 14))
-        close_btn.setToolTip("Exit Application")
+        close_btn.setToolTip("Close")
         close_btn.setProperty("class", "HeaderIconBtn")
         close_btn.setObjectName("CloseBtn")
         close_btn.clicked.connect(self.close_app)
@@ -553,7 +507,6 @@ class OverlayWindow(QWidget):
 
         main_layout.addWidget(header_frame)
 
-        # Chat Feed Scroll Area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_content = QWidget()
@@ -563,14 +516,12 @@ class OverlayWindow(QWidget):
         self.feed_layout.addStretch()
 
         self.scroll_area.setWidget(self.scroll_content)
-        
-        # Connect vertical scrollbar rangeChanged for 100% reliable auto-scroll
+
         vbar = self.scroll_area.verticalScrollBar()
         vbar.rangeChanged.connect(self.on_scroll_range_changed)
 
         main_layout.addWidget(self.scroll_area)
 
-        # Footer Row with QSizeGrip for smooth corner resizing
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(0, 0, 2, 2)
         footer_layout.addStretch()
@@ -579,10 +530,8 @@ class OverlayWindow(QWidget):
         footer_layout.addWidget(self.size_grip)
 
         main_layout.addLayout(footer_layout)
-
         outer_layout.addWidget(self.central_widget)
 
-        # Set saved geometry or defaults
         w = self.config.get("overlay_width", 440)
         h = self.config.get("overlay_height", 300)
         x = self.config.get("overlay_x", 100)
@@ -590,32 +539,30 @@ class OverlayWindow(QWidget):
         self.setGeometry(x, y, w, h)
 
     def on_scroll_range_changed(self, min_val, max_val):
-        """Auto scroll to bottom whenever new content expands the scrollable range."""
         if self.auto_scroll_enabled:
             self.scroll_area.verticalScrollBar().setValue(max_val)
 
     def init_system_tray(self):
-        """Creates a system tray icon in Windows notification area."""
         try:
             self.tray_icon = QSystemTrayIcon(self)
             self.tray_icon.setIcon(create_app_icon())
-            self.tray_icon.setToolTip("SA:RP Linggo Next Overlay")
-            
+            self.tray_icon.setToolTip("SARP Linggo")
+
             tray_menu = QMenu()
-            
-            toggle_action = QAction("👁️ Show / Hide Overlay", self)
+
+            toggle_action = QAction("Show / Hide", self)
             toggle_action.triggered.connect(self.toggle_visibility)
 
-            lock_action = QAction(get_svg_icon("lock", size=16), "Toggle Lock Mode", self)
+            lock_action = QAction(get_svg_icon("lock", size=16), "Toggle Lock", self)
             lock_action.triggered.connect(self.toggle_lock)
-            
+
             clear_action = QAction(get_svg_icon("clear", size=16), "Clear Feed", self)
             clear_action.triggered.connect(self.clear_feed)
 
             settings_action = QAction(get_svg_icon("settings", size=16), "Settings", self)
             settings_action.triggered.connect(self.open_settings)
-            
-            exit_action = QAction(get_svg_icon("close", size=16), "Exit Application", self)
+
+            exit_action = QAction(get_svg_icon("close", size=16), "Exit", self)
             exit_action.triggered.connect(self.close_app)
 
             tray_menu.addAction(toggle_action)
@@ -629,32 +576,22 @@ class OverlayWindow(QWidget):
             self.tray_icon.activated.connect(self.on_tray_icon_activated)
             self.tray_icon.show()
         except Exception as e:
-            print(f"[Overlay] init_system_tray error: {e}", flush=True)
+            print(f"[Overlay] System tray error: {e}", flush=True)
 
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             self.toggle_visibility()
 
     def toggle_visibility(self):
-        """Toggles complete visibility (Total Hide / Show) of the Overlay Window."""
         try:
             if self.isVisible():
                 self.hide()
-                if hasattr(self, 'tray_icon'):
-                    self.tray_icon.showMessage(
-                        "SA:RP Linggo Next",
-                        "Overlay tersembunyi (Total Hide).\nTekan hotkey atau klik tray icon untuk memunculkan kembali.",
-                        QSystemTrayIcon.MessageIcon.Information,
-                        2000
-                    )
             else:
                 self.show()
                 self.raise_()
                 self.activateWindow()
-                if hasattr(self, 'tray_icon'):
-                    self.tray_icon.show()
         except Exception as e:
-            print(f"[Overlay] toggle_visibility error: {e}", flush=True)
+            print(f"[Overlay] Toggle visibility error: {e}", flush=True)
 
     def toggle_chatlog_inbound(self):
         current = self.config.get("auto_translate_ic", True) or self.config.get("auto_translate_me_do", True)
@@ -676,34 +613,24 @@ class OverlayWindow(QWidget):
         self.setWindowOpacity(opacity)
 
         chat_enabled = self.config.get("auto_translate_ic", True) or self.config.get("auto_translate_me_do", True)
-        if chat_enabled:
-            self.chat_toggle_btn.setText("💬 Chat: ON")
-            self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #10B981; color: #FFFFFF; border-radius: 3px;")
-            self.chat_toggle_btn.setToolTip("Inbound Chatlog Translation: ENABLED (Click to turn OFF)")
-        else:
-            self.chat_toggle_btn.setText("🚫 Chat: OFF")
-            self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #334155; color: #94A3B8; border-radius: 3px;")
-            self.chat_toggle_btn.setToolTip("Inbound Chatlog Translation: DISABLED (Click to turn ON)")
+        self.chat_toggle_btn.setProperty("active", "true" if chat_enabled else "false")
+        self.chat_toggle_btn.style().unpolish(self.chat_toggle_btn)
+        self.chat_toggle_btn.style().polish(self.chat_toggle_btn)
 
         clip_enabled = self.config.get("enable_clipboard_outbound", True)
-        if clip_enabled:
-            self.clip_toggle_btn.setText("📋 Clip: ON")
-            self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #0284C7; color: #FFFFFF; border-radius: 3px;")
-            self.clip_toggle_btn.setToolTip("Clipboard Translation: ENABLED (Click to turn OFF)")
-        else:
-            self.clip_toggle_btn.setText("🚫 Clip: OFF")
-            self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #334155; color: #94A3B8; border-radius: 3px;")
-            self.clip_toggle_btn.setToolTip("Clipboard Translation: DISABLED (Click to turn ON)")
+        self.clip_toggle_btn.setProperty("active", "true" if clip_enabled else "false")
+        self.clip_toggle_btn.style().unpolish(self.clip_toggle_btn)
+        self.clip_toggle_btn.style().polish(self.clip_toggle_btn)
 
         api_key = self.config.get("groq_api_key", "")
         if not api_key:
-            self.set_status("● No API Key", "#F59E0B")
+            self.set_status("No API Key", "#F59E0B")
         else:
-            self.set_status("● Active", "#10B981")
+            self.set_status("Active", "#10B981")
 
     def set_status(self, message, color_hex="#94A3B8"):
         self.status_label.setText(message)
-        self.status_label.setStyleSheet(f"color: {color_hex}; font-size: 10px; font-weight: bold;")
+        self.status_label.setStyleSheet(f"color: {color_hex}; font-size: 10px; font-weight: 500;")
 
     def add_chat_card(self, item_data):
         font_size = self.config.get("font_size", 11)
@@ -712,7 +639,6 @@ class OverlayWindow(QWidget):
         count = self.feed_layout.count()
         self.feed_layout.insertWidget(count - 1, card)
 
-        # Force scroll to bottom immediately and after layout updates
         vbar = self.scroll_area.verticalScrollBar()
         vbar.setValue(vbar.maximum())
         QTimer.singleShot(30, lambda: vbar.setValue(vbar.maximum()))
@@ -736,21 +662,20 @@ class OverlayWindow(QWidget):
             self.lock_btn.setIcon(get_svg_icon("lock", color="#EF4444", size=14))
             self.lock_btn.setProperty("locked", "true")
             self.set_click_through(True)
-            self.set_status("● Locked", "#EF4444")
+            self.set_status("Locked", "#EF4444")
             self.size_grip.hide()
         else:
             self.set_click_through(False)
-            self.lock_btn.setText("Move Mode")
-            self.lock_btn.setIcon(get_svg_icon("move", color="#10B981", size=14))
+            self.lock_btn.setText("Move")
+            self.lock_btn.setIcon(get_svg_icon("move", color="#94A3B8", size=14))
             self.lock_btn.setProperty("locked", "false")
-            self.set_status("● Active", "#10B981")
+            self.set_status("Active", "#10B981")
             self.size_grip.show()
 
         self.lock_btn.style().unpolish(self.lock_btn)
         self.lock_btn.style().polish(self.lock_btn)
 
     def set_click_through(self, enable):
-        """Sets Windows OS click-through transparent mode using Win32 API."""
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
@@ -761,14 +686,14 @@ class OverlayWindow(QWidget):
                     style &= ~WS_EX_TRANSPARENT
                 ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
             except Exception as e:
-                print(f"[Overlay] set_click_through error: {e}", flush=True)
+                print(f"[Overlay] Set click-through error: {e}", flush=True)
 
     def toggle_collapse(self):
         self.is_collapsed = not self.is_collapsed
         if self.is_collapsed:
             self.scroll_area.hide()
             self.size_grip.hide()
-            self.resize(self.width(), 36)
+            self.resize(self.width(), 32)
         else:
             self.scroll_area.show()
             if not self.is_locked:
@@ -807,7 +732,6 @@ class OverlayWindow(QWidget):
         self.close_app()
         event.accept()
 
-    # Native Window Dragging & Edge Resizing Logic
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and not self.is_locked:
             if self.is_on_resize_area(event.position()):

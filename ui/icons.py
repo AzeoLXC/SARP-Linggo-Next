@@ -1,6 +1,7 @@
 from PyQt6.QtGui import QIcon, QPixmap, QPainter
-from PyQt6.QtCore import QByteArray, QSize
+from PyQt6.QtCore import QByteArray
 from PyQt6.QtSvg import QSvgRenderer
+import re
 
 SVG_ICONS = {
     "app_logo": """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -49,23 +50,18 @@ SVG_ICONS = {
 }
 
 def get_svg_icon(name, color=None, size=20):
-    """
-    Renders SVG string to crisp vector QIcon.
-    """
     svg_str = SVG_ICONS.get(name, "")
     if not svg_str:
         return QIcon()
 
     if color:
-        # Optionally replace stroke color
-        import re
         svg_str = re.sub(r'stroke="[^"]+"', f'stroke="{color}"', svg_str)
 
     byte_array = QByteArray(svg_str.encode('utf-8'))
     renderer = QSvgRenderer(byte_array)
 
     pixmap = QPixmap(size, size)
-    pixmap.fill(QPixmap().rect().height()) # fill transparent
+    pixmap.fill(QPixmap().rect().height())
     painter = QPainter(pixmap)
     renderer.render(painter)
     painter.end()

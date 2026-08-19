@@ -3,28 +3,29 @@ import wave
 import time
 import threading
 from collections import deque
+import re
 import numpy as np
 import sounddevice as sd
 import keyboard
 import pyperclip
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from PyQt6.QtCore import pyqtSignal, QThread
 
 class VoiceListener(QThread):
     recording_started = pyqtSignal()
     recording_stopped = pyqtSignal()
-    status_changed = pyqtSignal(str, str) # (message, color_hex)
-    voice_translated = pyqtSignal(dict)   # (item_data)
+    status_changed = pyqtSignal(str, str)
+    voice_translated = pyqtSignal(dict)
 
     def __init__(self, translator=None, config_manager=None):
         super().__init__()
         self.translator = translator
         self.config = config_manager
-        
+
         self.sample_rate = 16000
         self.channels = 1
         self.is_recording = False
         self.audio_frames = []
-        self.pre_buffer = deque(maxlen=15) # Holds ~450ms pre-recording audio
+        self.pre_buffer = deque(maxlen=15)
         self.stream = None
         self.running = True
         self.hotkey_hook_pressed = None
@@ -33,7 +34,6 @@ class VoiceListener(QThread):
         self.lock = threading.Lock()
 
     def update_hotkey(self):
-        """Re-binds global hotkey listener based on current config."""
         if not self.config:
             return
 
@@ -50,7 +50,6 @@ class VoiceListener(QThread):
                 self.hotkey_hook_pressed = keyboard.on_press_key(hotkey, self._on_key_press, suppress=False)
                 self.hotkey_hook_released = keyboard.on_release_key(hotkey, self._on_key_release, suppress=False)
                 self.current_hotkey = hotkey
-                print(f"[VoiceListener] Hotkey bound to: '{hotkey.upper()}'", flush=True)
             except Exception as e:
                 print(f"[VoiceListener] Failed to bind hotkey '{hotkey}': {e}", flush=True)
 
@@ -73,7 +72,7 @@ class VoiceListener(QThread):
     def _on_key_press(self, e):
         if not self.config.get("enable_voice_input", True):
             return
-        
+
         with self.lock:
             if not self.is_recording:
                 self.start_recording()
@@ -81,21 +80,18 @@ class VoiceListener(QThread):
     def _on_key_release(self, e):
         if not self.config.get("enable_voice_input", True):
             return
-        
+
         with self.lock:
             if self.is_recording:
                 self.stop_and_process()
 
     def _audio_callback(self, indata, frames, time_info, status):
-        if status:
-            print(f"[VoiceListener Audio Warning] {status}", flush=True)
         chunk = indata.copy()
         self.pre_buffer.append(chunk)
         if self.is_recording:
             self.audio_frames.append(chunk)
 
     def ensure_stream_active(self):
-        """Keeps InputStream open continuously so there is 0ms start latency on hotkey press."""
         if self.stream is None:
             try:
                 self.stream = sd.InputStream(
@@ -105,17 +101,15 @@ class VoiceListener(QThread):
                     callback=self._audio_callback
                 )
                 self.stream.start()
-                print("[VoiceListener] Continuous Audio InputStream active.", flush=True)
             except Exception as e:
-                print(f"[VoiceListener Stream Start Error] {e}", flush=True)
+                print(f"[VoiceListener] Audio stream error: {e}", flush=True)
                 self.stream = None
 
     def start_recording(self):
         self.ensure_stream_active()
         self.is_recording = True
-        # Pre-fill audio_frames with the pre-buffer (captures ~400ms before key press)
         self.audio_frames = list(self.pre_buffer)
-        self.status_changed.emit("🎙️ Recording Voice... (Release Key to Send)", "#EF4444")
+        self.status_changed.emit("Recording voice...", "#EF4444")
         self.recording_started.emit()
 
     def stop_and_process(self):
@@ -126,51 +120,41 @@ class VoiceListener(QThread):
         self.audio_frames = []
 
         if not frames_to_process:
-            self.status_changed.emit("⚠️ Short Recording (No Audio)", "#F59E0B")
+            self.status_changed.emit("No audio captured", "#F59E0B")
             return
 
-        # Combine audio frames
         audio_data = np.concatenate(frames_to_process, axis=0)
         duration = len(audio_data) / self.sample_rate
 
-        # Ignore accidental micro-taps under 0.35 seconds
         if duration < 0.35:
-            self.status_changed.emit("⚠️ Hold hotkey longer to talk", "#F59E0B")
+            self.status_changed.emit("Hold hotkey longer to record", "#F59E0B")
             return
 
-        # Convert numpy frames to in-memory WAV byte buffer
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, 'wb') as wf:
             wf.setnchannels(self.channels)
-            wf.setsampwidth(2) # 16-bit
+            wf.setsampwidth(2)
             wf.setframerate(self.sample_rate)
             wf.writeframes(audio_data.tobytes())
 
         wav_bytes = wav_buffer.getvalue()
-        
-        # Process transcription & translation in background thread
         threading.Thread(target=self._process_worker, args=(wav_bytes, duration), daemon=True).start()
 
     def _process_worker(self, wav_bytes, duration):
-        self.status_changed.emit(f"⚡ Transcribing Voice ({duration:.1f}s)...", "#38BDF8")
+        self.status_changed.emit(f"Transcribing ({duration:.1f}s)...", "#38BDF8")
 
         if not self.translator:
-            self.status_changed.emit("⚠️ Translator Not Ready", "#EF4444")
+            self.status_changed.emit("Translator not initialized", "#EF4444")
             return
 
-        # Step 1: Transcribe via Groq Whisper API
         indonesian_text, err = self.translator.transcribe_audio(wav_bytes)
         if err or not indonesian_text:
-            self.status_changed.emit(f"⚠️ {err if err else 'Speech Not Recognized'}", "#F59E0B")
+            self.status_changed.emit(f"{err if err else 'Speech not recognized'}", "#F59E0B")
             return
 
-        # Normalize all phonetic misinterpretations by Whisper (e.g. Persesmi, Selesmi, Slashmi, Slasmi, Selasmi, me, slash do, do, pasar -> dasar)
-        import re
         def clean_rp_action(text):
-            # Fix common leading speech misheard words
             text = re.sub(r'^(?:pasar|sar)\s+(mahluk|manusia|anjing|bangsat|tolol|bego)', r'dasar \1', text, flags=re.IGNORECASE)
             text = re.sub(r'\bdiuntuk\b', 'diuntung', text, flags=re.IGNORECASE)
-
             if re.match(r'^(?:[a-z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\s*do|do)\b', text, re.IGNORECASE):
                 return re.sub(r'^(?:[a-z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\s*do|do)\b', '/do', text, flags=re.IGNORECASE)
             if re.match(r'^(?:[a-z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\s*(?:mi|me)?|me)\b', text, re.IGNORECASE):
@@ -179,38 +163,35 @@ class VoiceListener(QThread):
 
         indonesian_text = clean_rp_action(indonesian_text)
 
-        # Step 2: Translate to selected Outbound Style
         style = self.config.get("outbound_style", "Standard English") if self.config else "Standard English"
-        self.status_changed.emit(f"⚡ Translating to {style}...", "#38BDF8")
+        self.status_changed.emit(f"Translating to {style}...", "#38BDF8")
 
         translated_text = self.translator.translate_outbound(indonesian_text, style=style)
         if not translated_text:
-            self.status_changed.emit("⚠️ Translation Failed", "#EF4444")
+            self.status_changed.emit("Translation failed", "#EF4444")
             return
 
-        # Step 3: Copy to Windows Clipboard automatically
         try:
             pyperclip.copy(translated_text)
         except Exception as e:
-            print(f"[VoiceListener Clipboard Error] {e}", flush=True)
+            print(f"[VoiceListener] Clipboard error: {e}", flush=True)
 
-        # Step 4: Emit completion event
         rpd_rem = self.translator.last_rpd_remaining
         rpd_lim = self.translator.last_rpd_limit
 
         item_data = {
             "type": "OUTBOUND_VOICE",
-            "speaker": f"MIC ({style.upper()})",
-            "original": f"🎙️ {indonesian_text}",
+            "speaker": f"MIC ({style})",
+            "original": f"{indonesian_text}",
             "translated": translated_text,
             "style": style,
             "timestamp": time.strftime("%H:%M:%S"),
             "rpd_remaining": rpd_rem,
             "rpd_limit": rpd_lim
         }
-        
+
         rpd_str = f" | RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}" if rpd_rem is not None else ""
-        self.status_changed.emit(f"● Voice Outbound Ready! (Press CTRL+V){rpd_str}", "#06B6D4")
+        self.status_changed.emit(f"Ready: Copied to clipboard{rpd_str}", "#2DD4BF")
         self.voice_translated.emit(item_data)
 
     def run(self):
