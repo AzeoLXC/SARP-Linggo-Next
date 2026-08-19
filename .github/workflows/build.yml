@@ -36,7 +36,7 @@ jobs:
         run: |
           BUILD_DATE=$(date +'%Y%m%d')
           echo "tag=${BUILD_DATE}" >> $GITHUB_OUTPUT
-          echo "title=Release ${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "title=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "filename=SARP-Linggo-Next-${BUILD_DATE}.exe" >> $GITHUB_OUTPUT
 
       - name: Build Standalone OneFile Executable with PyInstaller
