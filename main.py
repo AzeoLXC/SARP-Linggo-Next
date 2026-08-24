@@ -13,15 +13,17 @@ from core.chat_listener import ChatlogListener
 from core.clipboard_listener import ClipboardListener
 from core.translator import GroqTranslator, TranslationWorker
 from core.voice_listener import VoiceListener
+from core.licensing import LicenseManager
 from ui.overlay import OverlayWindow
 
 mutex_handle = None
 
 
 def acquire_single_instance_lock():
+    """Prevents multiple instances of SA-RP Linggo from running simultaneously."""
     global mutex_handle
     if os.name == 'nt':
-        mutex_name = 'Global\\SARPLinggoNextSingleInstanceMutex'
+        mutex_name = 'Global\\SARPLinggoSingleInstanceMutex'
         kernel32 = ctypes.windll.kernel32
         mutex_handle = kernel32.CreateMutexW(None, False, mutex_name)
         last_error = kernel32.GetLastError()
@@ -32,6 +34,7 @@ def acquire_single_instance_lock():
 
 
 def main():
+    print("[SA-RP Linggo] Starting overlay application...", flush=True)
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
@@ -40,10 +43,11 @@ def main():
     app.setQuitOnLastWindowClosed(False)
 
     if not acquire_single_instance_lock():
+        print("[SA-RP Linggo] Another instance is already running!", flush=True)
         QMessageBox.warning(
             None,
-            'Already Running',
-            'SARP Linggo Next is already running in the background.'
+            'SA-RP Linggo Sudah Berjalan',
+            'Aplikasi SA-RP Linggo sudah berjalan di latar belakang (Background)!\n\nSilakan cek ikon System Tray di kanan bawah taskbar.'
         )
         sys.exit(0)
 
@@ -52,6 +56,8 @@ def main():
     sig_timer.timeout.connect(lambda: None)
 
     config = ConfigManager()
+    license_mgr = LicenseManager()
+
     overlay = OverlayWindow(config)
     overlay.show()
 
@@ -70,11 +76,14 @@ def main():
     chat_listener = ChatlogListener(chatlog_path=chatlog_path, use_codsmp=use_codsmp)
     chat_listener.start()
 
-    clipboard_listener = ClipboardListener(translator=translator, config_manager=config)
-    voice_listener = VoiceListener(translator=translator, config_manager=config)
+    clipboard_listener = ClipboardListener(translator=translator, config_manager=config, license_manager=license_mgr)
+    voice_listener = VoiceListener(translator=translator, config_manager=config, license_manager=license_mgr)
     voice_listener.start()
 
     def on_new_chat_line(chat_item):
+        if not license_mgr.is_active():
+            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            return
         chat_type = chat_item.get('type', 'SAYS')
         if chat_type == 'SAYS' and not config.get('auto_translate_ic', True):
             return
@@ -86,27 +95,39 @@ def main():
         overlay.add_chat_card(chat_item)
 
     def on_listener_status(status_msg):
+        if not license_mgr.is_active():
+            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            return
         if 'Monitoring' in status_msg:
-            status_text = 'Locked' if overlay.is_locked else 'Active'
+            status_text = '🔒 Click-Through' if overlay.is_locked else '🟢 Move Mode'
             color = '#EF4444' if overlay.is_locked else '#10B981'
             overlay.set_status(status_text, color)
             return
         if 'Error' in status_msg or 'not found' in status_msg.lower():
-            overlay.set_status('Check Log Path', '#F59E0B')
+            overlay.set_status('⚠️ Check Chatlog Path', '#F59E0B')
             return
-        overlay.set_status(status_msg, '#94A3B8')
+        overlay.set_status(status_msg, '#A0AEC0')
 
     def on_outbound_translated(item_data):
+        if not license_mgr.is_active():
+            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            return
         overlay.add_chat_card(item_data)
         rpd_rem = item_data.get('rpd_remaining')
         rpd_lim = item_data.get('rpd_limit')
         rpd_str = f' | RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}' if rpd_rem is not None else ''
-        overlay.set_status(f'Copied to clipboard{rpd_str}', '#2DD4BF')
+        overlay.set_status(f'● Outbound Ready! (Press CTRL+V){rpd_str}', '#06B6D4')
 
     def on_voice_status(status_msg, color_hex):
+        if not license_mgr.is_active():
+            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            return
         overlay.set_status(status_msg, color_hex)
 
     def on_voice_translated(item_data):
+        if not license_mgr.is_active():
+            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            return
         overlay.add_chat_card(item_data)
 
     class HotkeyNotifier(QObject):
@@ -147,8 +168,9 @@ def main():
                 h_press = keyboard.on_press_key(hk, hotkey_notifier.on_key_press, suppress=False)
                 h_release = keyboard.on_release_key(hk, hotkey_notifier.on_key_release, suppress=False)
                 current_toggle_hooks = [h_press, h_release]
+                print(f"[SA-RP Linggo] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
             except Exception as e:
-                print(f"[Main] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
+                print(f"[SA-RP Linggo] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
 
     update_visibility_hotkey()
 
@@ -182,6 +204,7 @@ def main():
 
     def cleanup():
         try:
+            print("[SA-RP Linggo] Shutting down application cleanly...", flush=True)
             for h in current_toggle_hooks:
                 try:
                     keyboard.unhook(h)
@@ -195,6 +218,7 @@ def main():
             os._exit(0)
 
     app.aboutToQuit.connect(cleanup)
+    print("[SA-RP Linggo] Application started successfully! Overlay is active.", flush=True)
     sys.exit(app.exec())
 
 

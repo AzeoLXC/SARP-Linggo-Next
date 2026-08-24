@@ -61,3 +61,5 @@ venv.bak/
 # Local app configs / runtime
 config.json
 *.log
+*.exe
+
