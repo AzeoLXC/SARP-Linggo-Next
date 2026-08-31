@@ -52,21 +52,21 @@ class ChatItemCard(QFrame):
         if chat_type == "OUTBOUND":
             style_name = item_data.get("style", "Standard English")
             orig_text = f"{ts_str}[OUTBOUND ({style_name.upper()})] {item_data.get('original', '')}"
-            trans_text = f"➔ {item_data.get('translated', '')}  📌 [COPIED! PRESS CTRL+V]{rpd_tag}"
+            trans_text = f"-> {item_data.get('translated', '')}  [COPIED: CTRL+V]{rpd_tag}"
         elif chat_type == "OUTBOUND_VOICE":
             style_name = item_data.get("style", "Standard English")
-            orig_val = item_data.get("original", "").replace("🎙️ ", "").strip()
-            orig_text = f"{ts_str}🎙️ Transkrip Suara (ID): \"{orig_val}\""
-            trans_text = f"➔ {speaker} says: {translated_content}  📌 [COPIED! PRESS CTRL+V]{rpd_tag}"
+            orig_val = item_data.get("original", "").replace("Voice Transcript: ", "").strip()
+            orig_text = f"{ts_str}Voice Transcript (ID): \"{orig_val}\""
+            trans_text = f"-> {speaker} says: {translated_content}  [COPIED: CTRL+V]{rpd_tag}"
         elif chat_type == "ME":
             orig_text = f"{ts_str}* {speaker} {orig_content}"
-            trans_text = f"➔ * {speaker} {translated_content}{rpd_tag}"
+            trans_text = f"-> * {speaker} {translated_content}{rpd_tag}"
         elif chat_type == "DO":
             orig_text = f"{ts_str}* {orig_content} (( {speaker} ))"
-            trans_text = f"➔ * {translated_content} (( {speaker} )){rpd_tag}"
+            trans_text = f"-> * {translated_content} (( {speaker} )){rpd_tag}"
         else:
             orig_text = f"{ts_str}{speaker} says: {orig_content}"
-            trans_text = f"➔ {speaker} says: {translated_content}{rpd_tag}"
+            trans_text = f"-> {speaker} says: {translated_content}{rpd_tag}"
 
         orig_label = QLabel(orig_text)
         orig_label.setProperty("class", "OrigLine")
@@ -83,8 +83,8 @@ class ChatItemCard(QFrame):
         trans_label.setWordWrap(True)
         trans_label.setStyleSheet(f"font-size: {font_size}px;")
 
-        copy_btn = QPushButton("📋 Salin")
-        copy_btn.setToolTip("Salin teks terjemahan ini ke Clipboard (CTRL+V)")
+        copy_btn = QPushButton("Copy")
+        copy_btn.setToolTip("Copy translation to clipboard")
         copy_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0284C7;
@@ -109,7 +109,7 @@ class ChatItemCard(QFrame):
             from PyQt6.QtGui import QClipboard
             cb = QApplication.clipboard()
             cb.setText(clean_text_to_copy, QClipboard.Mode.Clipboard)
-            copy_btn.setText("✓ Tersalin!")
+            copy_btn.setText("Copied")
             copy_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #10B981;
@@ -122,7 +122,7 @@ class ChatItemCard(QFrame):
                 }
             """)
             QTimer.singleShot(1500, lambda: (
-                copy_btn.setText("📋 Salin"),
+                copy_btn.setText("Copy"),
                 copy_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #0284C7;
@@ -258,14 +258,14 @@ class SettingsDialog(QDialog):
         layout.addLayout(path_layout)
 
         # 2b. CodSMP Option Checkbox
-        self.codsmp_check = QCheckBox("⚡ Saya Pengguna CodSMP (Otomatis Baca Log Terbaru di Folder /logs/)")
+        self.codsmp_check = QCheckBox("CodSMP Mode (Auto-read newest log in /logs/ directory)")
         self.codsmp_check.setChecked(self.config.get("use_codsmp", True))
         self.codsmp_check.setStyleSheet("font-weight: bold; color: #38BDF8;")
         layout.addWidget(self.codsmp_check)
 
         # 2c. Voice Input Checkbox & Hotkey Selector
         voice_layout = QHBoxLayout()
-        self.voice_check = QCheckBox("🎙️ Aktifkan Voice-to-Text Mic (Push-To-Talk)")
+        self.voice_check = QCheckBox("Voice-to-Text Microphone (Push-To-Talk)")
         self.voice_check.setChecked(self.config.get("enable_voice_input", True))
         self.voice_check.setStyleSheet("font-weight: bold; color: #A855F7;")
 
@@ -286,7 +286,7 @@ class SettingsDialog(QDialog):
 
         # 2d. Toggle Visibility (Total Hide / Show) Hotkey Selector
         hide_layout = QHBoxLayout()
-        hide_label = QLabel("🙈 <b>Hotkey Total Hide / Show Overlay:</b>")
+        hide_label = QLabel("<b>Toggle Visibility Hotkey:</b>")
         hide_label.setStyleSheet("color: #10B981; font-weight: bold;")
         
         self.hide_hotkey_combo = QComboBox()
@@ -306,7 +306,7 @@ class SettingsDialog(QDialog):
         
         model_vbox = QVBoxLayout()
         model_vbox.addWidget(QLabel("<b>AI Engine Model:</b>"))
-        engine_label = QLabel("⚡ <b>GPT OSS 120B</b> (Groq Official High-Speed Engine)")
+        engine_label = QLabel("<b>GPT OSS 120B</b> (Groq Cloud Engine)")
         engine_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
         model_vbox.addWidget(engine_label)
 
@@ -324,10 +324,10 @@ class SettingsDialog(QDialog):
         # 3b. Live RPD Checker Section
         rpd_vbox = QVBoxLayout()
         rpd_hbox = QHBoxLayout()
-        self.rpd_status_label = QLabel("Sisa RPD: <b>[Klik tombol Cek Sisa RPD]</b>")
+        self.rpd_status_label = QLabel("RPD Remaining: <b>[Check RPD]</b>")
         self.rpd_status_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
         
-        check_rpd_btn = QPushButton("Cek Sisa RPD 🔄")
+        check_rpd_btn = QPushButton("Check RPD")
         check_rpd_btn.setStyleSheet("background-color: #0284C7; color: #FFFFFF; font-weight: bold; padding: 5px 12px; border-radius: 4px; border: none;")
         check_rpd_btn.clicked.connect(self.check_live_rpd)
         
@@ -361,12 +361,12 @@ class SettingsDialog(QDialog):
         # 5. Translation Automation Toggles
         trans_toggle_vbox = QVBoxLayout()
         
-        self.chatlog_check = QCheckBox("Enable Inbound Chatlog Auto-Translation (Chatlog ➔ Overlay)")
+        self.chatlog_check = QCheckBox("Enable Inbound Chatlog Auto-Translation (Chatlog -> Overlay)")
         chatlog_active = self.config.get("auto_translate_ic", True) or self.config.get("auto_translate_me_do", True)
         self.chatlog_check.setChecked(chatlog_active)
         self.chatlog_check.setStyleSheet("font-weight: bold; color: #10B981;")
 
-        self.outbound_check = QCheckBox("Enable Outbound Clipboard Auto-Translation (ID ➔ EN)")
+        self.outbound_check = QCheckBox("Enable Outbound Clipboard Auto-Translation (ID -> EN)")
         self.outbound_check.setChecked(self.config.get("enable_clipboard_outbound", True))
         self.outbound_check.setStyleSheet("font-weight: bold; color: #38BDF8;")
         
@@ -390,7 +390,7 @@ class SettingsDialog(QDialog):
         lic_vbox.setSpacing(6)
         
         lic_title_row = QHBoxLayout()
-        lic_title = QLabel("🔑 <b>Offline License Token:</b>")
+        lic_title = QLabel("<b>Offline License Token:</b>")
         lic_title.setStyleSheet("color: #F59E0B;")
         lic_title_row.addWidget(lic_title)
         lic_title_row.addStretch()
@@ -442,7 +442,7 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
 
         # Copyright & Credit label
-        credit_label = QLabel("SA-RP Linggo v1.1.0 • Created by yambuttt • Open Source (MIT)")
+        credit_label = QLabel("SARP Linggo Next • Open Source (MIT)")
         credit_label.setStyleSheet("color: #64748B; font-size: 10px; margin-top: 6px;")
         credit_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(credit_label)
@@ -770,7 +770,7 @@ class OverlayWindow(QWidget):
             
             tray_menu = QMenu()
             
-            toggle_action = QAction("👁️ Show / Hide Overlay", self)
+            toggle_action = QAction("Show / Hide Overlay", self)
             toggle_action.triggered.connect(self.toggle_visibility)
 
             lock_action = QAction(get_svg_icon("lock", size=16), "Toggle Lock Mode", self)
@@ -845,29 +845,29 @@ class OverlayWindow(QWidget):
 
         chat_enabled = self.config.get("auto_translate_ic", True) or self.config.get("auto_translate_me_do", True)
         if chat_enabled:
-            self.chat_toggle_btn.setText("💬 Chat: ON")
+            self.chat_toggle_btn.setText("Chat: ON")
             self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #10B981; color: #FFFFFF; border-radius: 3px;")
             self.chat_toggle_btn.setToolTip("Inbound Chatlog Translation: ENABLED (Click to turn OFF)")
         else:
-            self.chat_toggle_btn.setText("🚫 Chat: OFF")
+            self.chat_toggle_btn.setText("Chat: OFF")
             self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #334155; color: #94A3B8; border-radius: 3px;")
             self.chat_toggle_btn.setToolTip("Inbound Chatlog Translation: DISABLED (Click to turn ON)")
 
         clip_enabled = self.config.get("enable_clipboard_outbound", True)
         if clip_enabled:
-            self.clip_toggle_btn.setText("📋 Clip: ON")
+            self.clip_toggle_btn.setText("Clip: ON")
             self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #0284C7; color: #FFFFFF; border-radius: 3px;")
             self.clip_toggle_btn.setToolTip("Clipboard Translation: ENABLED (Click to turn OFF)")
         else:
-            self.clip_toggle_btn.setText("🚫 Clip: OFF")
+            self.clip_toggle_btn.setText("Clip: OFF")
             self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #334155; color: #94A3B8; border-radius: 3px;")
             self.clip_toggle_btn.setToolTip("Clipboard Translation: DISABLED (Click to turn ON)")
 
         api_key = self.config.get("groq_api_key", "")
         if not api_key:
-            self.set_status("● No API Key", "#F59E0B")
+            self.set_status("No API Key", "#F59E0B")
         else:
-            self.set_status("● Active", "#10B981")
+            self.set_status("Active", "#10B981")
 
     def set_status(self, message, color_hex="#94A3B8"):
         self.status_label.setText(message)
@@ -904,14 +904,14 @@ class OverlayWindow(QWidget):
             self.lock_btn.setIcon(get_svg_icon("lock", color="#EF4444", size=14))
             self.lock_btn.setProperty("locked", "true")
             self.set_click_through(True)
-            self.set_status("● Locked", "#EF4444")
+            self.set_status("Locked", "#EF4444")
             self.size_grip.hide()
         else:
             self.set_click_through(False)
             self.lock_btn.setText("Move Mode")
             self.lock_btn.setIcon(get_svg_icon("move", color="#10B981", size=14))
             self.lock_btn.setProperty("locked", "false")
-            self.set_status("● Active", "#10B981")
+            self.set_status("Active", "#10B981")
             self.size_grip.show()
 
         self.lock_btn.style().unpolish(self.lock_btn)

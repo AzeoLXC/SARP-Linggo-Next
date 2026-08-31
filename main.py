@@ -82,7 +82,7 @@ def main():
 
     def on_new_chat_line(chat_item):
         if not license_mgr.is_active():
-            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            overlay.set_status("UNLICENSED (Enter Token in Settings)", "#EF4444")
             return
         chat_type = chat_item.get('type', 'SAYS')
         if chat_type == 'SAYS' and not config.get('auto_translate_ic', True):
@@ -96,37 +96,37 @@ def main():
 
     def on_listener_status(status_msg):
         if not license_mgr.is_active():
-            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            overlay.set_status("UNLICENSED (Enter Token in Settings)", "#EF4444")
             return
         if 'Monitoring' in status_msg:
-            status_text = '🔒 Click-Through' if overlay.is_locked else '🟢 Move Mode'
+            status_text = 'Click-Through' if overlay.is_locked else 'Move Mode'
             color = '#EF4444' if overlay.is_locked else '#10B981'
             overlay.set_status(status_text, color)
             return
         if 'Error' in status_msg or 'not found' in status_msg.lower():
-            overlay.set_status('⚠️ Check Chatlog Path', '#F59E0B')
+            overlay.set_status('Check Chatlog Path', '#F59E0B')
             return
         overlay.set_status(status_msg, '#A0AEC0')
 
     def on_outbound_translated(item_data):
         if not license_mgr.is_active():
-            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            overlay.set_status("UNLICENSED (Enter Token in Settings)", "#EF4444")
             return
         overlay.add_chat_card(item_data)
         rpd_rem = item_data.get('rpd_remaining')
         rpd_lim = item_data.get('rpd_limit')
         rpd_str = f' | RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}' if rpd_rem is not None else ''
-        overlay.set_status(f'● Outbound Ready! (Press CTRL+V){rpd_str}', '#06B6D4')
+        overlay.set_status(f'Outbound Ready (CTRL+V){rpd_str}', '#06B6D4')
 
     def on_voice_status(status_msg, color_hex):
         if not license_mgr.is_active():
-            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            overlay.set_status("UNLICENSED (Enter Token in Settings)", "#EF4444")
             return
         overlay.set_status(status_msg, color_hex)
 
     def on_voice_translated(item_data):
         if not license_mgr.is_active():
-            overlay.set_status("🔒 UNLICENSED (Enter Token in Settings)", "#EF4444")
+            overlay.set_status("UNLICENSED (Enter Token in Settings)", "#EF4444")
             return
         overlay.add_chat_card(item_data)
 
