@@ -1,6 +1,6 @@
 # SARP-Linggo-Next
 
-Real-time contextual translation overlay for GTA SA-MP and CodSMP client environments. It streams incoming chat log lines and outbound clipboard or audio inputs, processing translation through Groq API endpoints.
+Real-time contextual translation overlay for GTA SA-MP and CodSMP client environments. It streams incoming chat log lines and outbound clipboard or audio inputs, processing translation through OpenAI-compatible Chat Completion API endpoints.
 
 ## Overview
 
@@ -8,11 +8,12 @@ SARP-Linggo-Next operates as a transparent desktop overlay over game windows. It
 
 ## Key Features
 
+- **Multi-Provider AI Engine**: Native support for Groq, OpenAI, DeepSeek, OpenRouter, local Ollama endpoints, and any custom OpenAI-compatible API base URL.
 - **Inbound Stream Translation**: Reads `chatlog.txt` (SA-MP) and active log buffers (CodSMP), parses dialogue, `/me`, and `/do` actions, and translates them to Indonesian.
 - **Outbound Clipboard Interception**: Intercepts Indonesian text copied to clipboard (`CTRL+C`), converts it into context-appropriate English (`Standard English` or `American Hood`), and replaces clipboard contents for immediate pasting (`CTRL+V`).
-- **Push-to-Talk Voice Input**: Captures microphone audio using `sounddevice`, transcribes via Whisper API, translates to target style, and populates clipboard.
+- **Push-to-Talk Voice Input**: Captures microphone audio using `sounddevice`, transcribes via Whisper API endpoint, translates to target style, and populates clipboard.
 - **Overlay Window Management**: Frameless PyQt6 interface with Win32 click-through (`WS_EX_TRANSPARENT`), topmost persistence (`WS_EX_TOPMOST`), hotkey visibility toggle, opacity adjustments, and edge resizing.
-- **API Key Pooling & Rate Limit Handling**: Supports multi-key rotation and parses HTTP rate-limit response headers (`x-ratelimit-remaining-requests`, `x-ratelimit-limit-requests`).
+- **API Key Pooling & Rate Limit Handling**: Supports multi-key rotation and parses standard HTTP rate-limit response headers (`x-ratelimit-remaining-requests`, `x-ratelimit-limit-requests`).
 
 ## Architecture
 
@@ -21,9 +22,9 @@ SARP-Linggo-Next/
 ├── core/
 │   ├── chat_listener.py      # Chatlog tailing and regex parser for SA-MP / CodSMP
 │   ├── clipboard_listener.py # Clipboard monitor and outbound worker dispatcher
-│   ├── config.py             # Configuration manager with persistence
+│   ├── config.py             # Configuration manager with multi-provider presets
 │   ├── licensing.py          # Offline HMAC-based licensing validator
-│   ├── translator.py         # Groq API client (translation and Whisper STT)
+│   ├── translator.py         # Universal OpenAI-compatible AI translation & STT client
 │   └── voice_listener.py     # Continuous audio buffer and push-to-talk processor
 ├── ui/
 │   ├── icons.py              # Vector SVG icon renderer
@@ -36,11 +37,22 @@ SARP-Linggo-Next/
 └── LICENSE                   # MIT License
 ```
 
+## Supported AI Providers & Models
+
+| Provider | Default Endpoint | Supported Models |
+| :--- | :--- | :--- |
+| **Groq** | `https://api.groq.com/openai/v1/chat/completions` | `openai/gpt-oss-120b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` |
+| **OpenAI** | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini`, `gpt-4o`, `gpt-4.1-mini`, `gpt-4.1-turbo` |
+| **DeepSeek** | `https://api.deepseek.com/chat/completions` | `deepseek-chat`, `deepseek-reasoner` |
+| **OpenRouter** | `https://openrouter.ai/api/v1/chat/completions` | `openai/gpt-4o-mini`, `meta-llama/llama-3.3-70b-instruct` |
+| **Ollama (Local)** | `http://localhost:11434/v1/chat/completions` | `llama3.2`, `llama3.1`, `qwen2.5`, `mistral` |
+| **Custom** | User-defined URL | Any model identifier supported by the endpoint |
+
 ## System Requirements
 
 - Windows 10 / Windows 11 (64-bit)
 - Python 3.10 to 3.12 (64-bit)
-- Groq API Key
+- AI API Key (Groq, OpenAI, DeepSeek, OpenRouter, or Local Ollama)
 
 ## Installation and Execution
 
@@ -85,7 +97,10 @@ Configuration parameters stored in `config.json`:
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `groq_api_key` | string | `""` | Single or comma-separated Groq API keys |
+| `api_provider` | string | `"Groq"` | Active provider preset (`Groq`, `OpenAI`, `DeepSeek`, `OpenRouter`, `Ollama (Local)`, `Custom`) |
+| `api_endpoint` | string | `""` | Full URL to Chat Completion endpoint |
+| `api_key` | string | `""` | API key (or multiple keys separated by commas/newlines) |
+| `model_name` | string | `"openai/gpt-oss-120b"` | Target model ID for translation |
 | `chatlog_path` | string | `""` | Absolute path to `chatlog.txt` |
 | `use_codsmp` | boolean | `true` | Automatically track newest log in `logs/` directory |
 | `target_language` | string | `"Indonesian"` | Inbound translation target language |

@@ -8,10 +8,10 @@ import keyboard
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
-from core.config import ConfigManager
+from core.config import ConfigManager, PRESET_PROVIDERS
 from core.chat_listener import ChatlogListener
 from core.clipboard_listener import ClipboardListener
-from core.translator import GroqTranslator, TranslationWorker
+from core.translator import UniversalAITranslator, TranslationWorker
 from core.voice_listener import VoiceListener
 from core.licensing import LicenseManager
 from ui.overlay import OverlayWindow
@@ -20,10 +20,10 @@ mutex_handle = None
 
 
 def acquire_single_instance_lock():
-    """Prevents multiple instances of SA-RP Linggo from running simultaneously."""
+    """Prevents multiple instances of SARP Linggo Next from running simultaneously."""
     global mutex_handle
     if os.name == 'nt':
-        mutex_name = 'Global\\SARPLinggoSingleInstanceMutex'
+        mutex_name = 'Global\\SARPLinggoNextSingleInstanceMutex'
         kernel32 = ctypes.windll.kernel32
         mutex_handle = kernel32.CreateMutexW(None, False, mutex_name)
         last_error = kernel32.GetLastError()
@@ -34,7 +34,7 @@ def acquire_single_instance_lock():
 
 
 def main():
-    print("[SA-RP Linggo] Starting overlay application...", flush=True)
+    print("[SARP Linggo Next] Starting overlay application...", flush=True)
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
@@ -43,11 +43,11 @@ def main():
     app.setQuitOnLastWindowClosed(False)
 
     if not acquire_single_instance_lock():
-        print("[SA-RP Linggo] Another instance is already running!", flush=True)
+        print("[SARP Linggo Next] Another instance is already running!", flush=True)
         QMessageBox.warning(
             None,
-            'SA-RP Linggo Sudah Berjalan',
-            'Aplikasi SA-RP Linggo sudah berjalan di latar belakang (Background)!\n\nSilakan cek ikon System Tray di kanan bawah taskbar.'
+            'SARP Linggo Next Already Running',
+            'SARP Linggo Next is already running in the background.\n\nPlease check the System Tray icon in the taskbar.'
         )
         sys.exit(0)
 
@@ -61,11 +61,24 @@ def main():
     overlay = OverlayWindow(config)
     overlay.show()
 
-    api_key = config.get('groq_api_key', '')
-    model = config.get('groq_model', 'openai/gpt-oss-120b')
-    target_lang = config.get('target_language', 'Indonesian')
+    provider_name = config.get('api_provider', 'Groq')
+    preset = PRESET_PROVIDERS.get(provider_name, PRESET_PROVIDERS['Groq'])
 
-    translator = GroqTranslator(api_key=api_key, model=model, target_lang=target_lang)
+    endpoint = config.get('api_endpoint', preset.get('endpoint', ''))
+    api_key = config.get('api_key', '')
+    model = config.get('model_name', 'openai/gpt-oss-120b')
+    target_lang = config.get('target_language', 'Indonesian')
+    stt_endpoint = preset.get('stt_endpoint', '')
+    stt_model = preset.get('stt_model', '')
+
+    translator = UniversalAITranslator(
+        api_key=api_key,
+        endpoint=endpoint,
+        model=model,
+        target_lang=target_lang,
+        stt_endpoint=stt_endpoint,
+        stt_model=stt_model
+    )
     overlay.set_translator(translator)
 
     trans_worker = TranslationWorker(translator)
@@ -168,20 +181,28 @@ def main():
                 h_press = keyboard.on_press_key(hk, hotkey_notifier.on_key_press, suppress=False)
                 h_release = keyboard.on_release_key(hk, hotkey_notifier.on_key_release, suppress=False)
                 current_toggle_hooks = [h_press, h_release]
-                print(f"[SA-RP Linggo] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
+                print(f"[SARP Linggo Next] Total Hide Toggle Hotkey bound to '{hk.upper()}'", flush=True)
             except Exception as e:
-                print(f"[SA-RP Linggo] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
+                print(f"[SARP Linggo Next] Failed to bind toggle hotkey '{hk}': {e}", flush=True)
 
     update_visibility_hotkey()
 
     def on_settings_updated():
-        new_key = config.get('groq_api_key', '')
-        new_model = config.get('groq_model', 'openai/gpt-oss-120b')
-        new_lang = config.get('target_language', 'Indonesian')
+        prov = config.get('api_provider', 'Groq')
+        p_preset = PRESET_PROVIDERS.get(prov, PRESET_PROVIDERS['Groq'])
 
+        new_endpoint = config.get('api_endpoint', p_preset.get('endpoint', ''))
+        new_key = config.get('api_key', '')
+        new_model = config.get('model_name', 'openai/gpt-oss-120b')
+        new_lang = config.get('target_language', 'Indonesian')
+        new_stt_endpoint = p_preset.get('stt_endpoint', '')
+        new_stt_model = p_preset.get('stt_model', '')
+
+        translator.set_endpoint(new_endpoint)
         translator.set_api_key(new_key)
         translator.set_model(new_model)
         translator.set_target_lang(new_lang)
+        translator.set_stt_config(new_stt_endpoint, new_stt_model)
 
         new_path = config.get('chatlog_path', '')
         chat_listener.set_path(new_path)
@@ -204,7 +225,7 @@ def main():
 
     def cleanup():
         try:
-            print("[SA-RP Linggo] Shutting down application cleanly...", flush=True)
+            print("[SARP Linggo Next] Shutting down application cleanly...", flush=True)
             for h in current_toggle_hooks:
                 try:
                     keyboard.unhook(h)
@@ -218,7 +239,7 @@ def main():
             os._exit(0)
 
     app.aboutToQuit.connect(cleanup)
-    print("[SA-RP Linggo] Application started successfully! Overlay is active.", flush=True)
+    print("[SARP Linggo Next] Application started successfully! Overlay is active.", flush=True)
     sys.exit(app.exec())
 
 

@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QAction, QPixmap, QColor, QPainter, QFont
 from ui.styles import MAIN_STYLE
 from ui.icons import get_svg_icon
+from core.config import PRESET_PROVIDERS
 
 # Win32 API Constants
 GWL_EXSTYLE = -20
@@ -17,15 +18,10 @@ WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED = 0x00080000
 
 def create_app_icon():
-    """Generates vector app icon for window taskbar and tray."""
     return get_svg_icon("app_logo", size=32)
 
 
 class ChatItemCard(QFrame):
-    """
-    Compact SAMP Chatlog Style Card.
-    Presents original chat line and translated text in clean, compact SAMP game-chat format.
-    """
     def __init__(self, item_data, font_size=11):
         super().__init__()
         self.setObjectName("ChatItemCard")
@@ -48,7 +44,6 @@ class ChatItemCard(QFrame):
         rpd_lim = item_data.get("rpd_limit")
         rpd_tag = f"  <span style='color: #64748B; font-size: 9px; font-weight: bold;'>[RPD: {rpd_rem}/{rpd_lim if rpd_lim else 1000}]</span>" if rpd_rem is not None else ""
 
-        # Line 1: Original SAMP Line / Voice Transcript
         if chat_type == "OUTBOUND":
             style_name = item_data.get("style", "Standard English")
             orig_text = f"{ts_str}[OUTBOUND ({style_name.upper()})] {item_data.get('original', '')}"
@@ -155,7 +150,6 @@ def show_noactivate_msgbox(parent, title, text, icon=QMessageBox.Icon.Informatio
     msg.setText(text)
     msg.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
     try:
-        import ctypes
         from ctypes import wintypes
         hwnd = wintypes.HWND(int(msg.winId()))
         user32 = ctypes.windll.user32
@@ -179,24 +173,23 @@ def show_noactivate_msgbox(parent, title, text, icon=QMessageBox.Icon.Informatio
 
 
 class SettingsDialog(QDialog):
-    """Dialog to configure API Key, Chatlog Path, and UI preferences."""
+    """Configuration dialog supporting multi-provider AI engines and endpoints."""
     def __init__(self, config_manager, translator=None, parent=None):
         super().__init__(parent)
         self.config = config_manager
         self.translator = translator
-        self.setWindowTitle("SA-RP Linggo Settings")
+        self.setWindowTitle("SARP Linggo Next Settings")
         self.setWindowIcon(get_svg_icon("settings", size=24))
         self.setWindowFlags(
             Qt.WindowType.Dialog |
             Qt.WindowType.WindowStaysOnTopHint
         )
-        self.resize(480, 460)
+        self.resize(520, 560)
         self.init_ui()
 
     def showEvent(self, event):
         super().showEvent(event)
         try:
-            import ctypes
             from ctypes import wintypes
             hwnd = wintypes.HWND(int(self.winId()))
             user32 = ctypes.windll.user32
@@ -213,21 +206,64 @@ class SettingsDialog(QDialog):
             
             user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
             user32.SetWindowPos.restype = wintypes.BOOL
-            # SWP_NOMOVE (0x0002) | SWP_NOSIZE (0x0001) | SWP_NOACTIVATE (0x0010) | SWP_SHOWWINDOW (0x0040)
             user32.SetWindowPos(hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010 | 0x0040)
         except Exception as e:
-            print(f"[SettingsDialog] showEvent exstyle error: {e}", flush=True)
+            print(f"[SettingsDialog] showEvent error: {e}", flush=True)
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        # 1. Groq API Key
-        layout.addWidget(QLabel("<b>Groq AI API Key:</b>"))
+        # 1. AI Provider & Endpoint Selection
+        provider_layout = QHBoxLayout()
+        prov_vbox = QVBoxLayout()
+        prov_vbox.addWidget(QLabel("<b>AI Provider:</b>"))
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(list(PRESET_PROVIDERS.keys()))
+        saved_provider = self.config.get("api_provider", "Groq")
+        self.provider_combo.setCurrentText(saved_provider if saved_provider in PRESET_PROVIDERS else "Groq")
+        self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
+        prov_vbox.addWidget(self.provider_combo)
+
+        endpoint_vbox = QVBoxLayout()
+        endpoint_vbox.addWidget(QLabel("<b>API Endpoint URL:</b>"))
+        default_ep = PRESET_PROVIDERS.get(saved_provider, {}).get("endpoint", "")
+        self.endpoint_input = QLineEdit(self.config.get("api_endpoint", default_ep))
+        self.endpoint_input.setPlaceholderText("https://api.groq.com/openai/v1/chat/completions")
+        endpoint_vbox.addWidget(self.endpoint_input)
+
+        provider_layout.addLayout(prov_vbox, 1)
+        provider_layout.addLayout(endpoint_vbox, 2)
+        layout.addLayout(provider_layout)
+
+        # 2. AI Model Selection & Target Language
+        model_lang_layout = QHBoxLayout()
+        model_vbox = QVBoxLayout()
+        model_vbox.addWidget(QLabel("<b>AI Model Name:</b>"))
+        self.model_combo = QComboBox()
+        self.model_combo.setEditable(True)
+        self.populate_models(saved_provider)
+        saved_model = self.config.get("model_name", "openai/gpt-oss-120b")
+        self.model_combo.setCurrentText(saved_model)
+        model_vbox.addWidget(self.model_combo)
+
+        lang_vbox = QVBoxLayout()
+        lang_vbox.addWidget(QLabel("<b>Target Language:</b>"))
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItems(["Indonesian", "English", "Javanese", "Sundanese"])
+        self.lang_combo.setCurrentText(self.config.get("target_language", "Indonesian"))
+        lang_vbox.addWidget(self.lang_combo)
+
+        model_lang_layout.addLayout(model_vbox, 2)
+        model_lang_layout.addLayout(lang_vbox, 1)
+        layout.addLayout(model_lang_layout)
+
+        # 3. API Key Input
+        layout.addWidget(QLabel("<b>API Key (Supports key rotation via commas or newlines):</b>"))
         key_layout = QHBoxLayout()
-        self.key_input = QLineEdit(self.config.get("groq_api_key", ""))
-        self.key_input.setPlaceholderText("Enter your Groq API Key (gsk_...)")
+        self.key_input = QLineEdit(self.config.get("api_key", ""))
+        self.key_input.setPlaceholderText("Enter API Key (sk-... or gsk-...)")
         
         detect_key_btn = QPushButton("Auto-Detect Key")
         detect_key_btn.setIcon(get_svg_icon("settings", size=16))
@@ -238,7 +274,23 @@ class SettingsDialog(QDialog):
         key_layout.addWidget(detect_key_btn)
         layout.addLayout(key_layout)
 
-        # 2. SAMP Chatlog Path
+        # 3b. Live API Quota / Connection Checker
+        rpd_vbox = QVBoxLayout()
+        rpd_hbox = QHBoxLayout()
+        self.rpd_status_label = QLabel("Connection / Quota: <b>[Check Connection]</b>")
+        self.rpd_status_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
+        
+        check_rpd_btn = QPushButton("Check Connection")
+        check_rpd_btn.setStyleSheet("background-color: #0284C7; color: #FFFFFF; font-weight: bold; padding: 5px 12px; border-radius: 4px; border: none;")
+        check_rpd_btn.clicked.connect(self.check_live_rpd)
+        
+        rpd_hbox.addWidget(self.rpd_status_label)
+        rpd_hbox.addStretch()
+        rpd_hbox.addWidget(check_rpd_btn)
+        rpd_vbox.addLayout(rpd_hbox)
+        layout.addLayout(rpd_vbox)
+
+        # 4. SAMP Chatlog Path
         layout.addWidget(QLabel("<b>SAMP Chatlog File Path:</b>"))
         path_layout = QHBoxLayout()
         self.path_input = QLineEdit(self.config.get("chatlog_path", ""))
@@ -257,13 +309,12 @@ class SettingsDialog(QDialog):
         path_layout.addWidget(detect_path_btn)
         layout.addLayout(path_layout)
 
-        # 2b. CodSMP Option Checkbox
+        # 5. CodSMP Option & Hotkeys
         self.codsmp_check = QCheckBox("CodSMP Mode (Auto-read newest log in /logs/ directory)")
         self.codsmp_check.setChecked(self.config.get("use_codsmp", True))
         self.codsmp_check.setStyleSheet("font-weight: bold; color: #38BDF8;")
         layout.addWidget(self.codsmp_check)
 
-        # 2c. Voice Input Checkbox & Hotkey Selector
         voice_layout = QHBoxLayout()
         self.voice_check = QCheckBox("Voice-to-Text Microphone (Push-To-Talk)")
         self.voice_check.setChecked(self.config.get("enable_voice_input", True))
@@ -280,11 +331,10 @@ class SettingsDialog(QDialog):
         
         voice_layout.addWidget(self.voice_check)
         voice_layout.addStretch()
-        voice_layout.addWidget(QLabel("<b>Hotkey:</b>"))
+        voice_layout.addWidget(QLabel("<b>Voice Key:</b>"))
         voice_layout.addWidget(self.voice_hotkey_combo)
         layout.addLayout(voice_layout)
 
-        # 2d. Toggle Visibility (Total Hide / Show) Hotkey Selector
         hide_layout = QHBoxLayout()
         hide_label = QLabel("<b>Toggle Visibility Hotkey:</b>")
         hide_label.setStyleSheet("color: #10B981; font-weight: bold;")
@@ -301,43 +351,7 @@ class SettingsDialog(QDialog):
         hide_layout.addWidget(self.hide_hotkey_combo)
         layout.addLayout(hide_layout)
 
-        # 3. Model & Language
-        row_layout = QHBoxLayout()
-        
-        model_vbox = QVBoxLayout()
-        model_vbox.addWidget(QLabel("<b>AI Engine Model:</b>"))
-        engine_label = QLabel("<b>GPT OSS 120B</b> (Groq Cloud Engine)")
-        engine_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
-        model_vbox.addWidget(engine_label)
-
-        lang_vbox = QVBoxLayout()
-        lang_vbox.addWidget(QLabel("<b>Target Language:</b>"))
-        self.lang_combo = QComboBox()
-        self.lang_combo.addItems(["Indonesian", "English", "Javanese", "Sundanese"])
-        self.lang_combo.setCurrentText(self.config.get("target_language", "Indonesian"))
-        lang_vbox.addWidget(self.lang_combo)
-
-        row_layout.addLayout(model_vbox)
-        row_layout.addLayout(lang_vbox)
-        layout.addLayout(row_layout)
-
-        # 3b. Live RPD Checker Section
-        rpd_vbox = QVBoxLayout()
-        rpd_hbox = QHBoxLayout()
-        self.rpd_status_label = QLabel("RPD Remaining: <b>[Check RPD]</b>")
-        self.rpd_status_label.setStyleSheet("color: #38BDF8; font-size: 11px;")
-        
-        check_rpd_btn = QPushButton("Check RPD")
-        check_rpd_btn.setStyleSheet("background-color: #0284C7; color: #FFFFFF; font-weight: bold; padding: 5px 12px; border-radius: 4px; border: none;")
-        check_rpd_btn.clicked.connect(self.check_live_rpd)
-        
-        rpd_hbox.addWidget(self.rpd_status_label)
-        rpd_hbox.addStretch()
-        rpd_hbox.addWidget(check_rpd_btn)
-        rpd_vbox.addLayout(rpd_hbox)
-        layout.addLayout(rpd_vbox)
-
-        # 4. Font Size & Opacity
+        # 6. Font Size & Opacity
         row2_layout = QHBoxLayout()
         
         font_vbox = QVBoxLayout()
@@ -358,7 +372,7 @@ class SettingsDialog(QDialog):
         row2_layout.addLayout(opac_vbox)
         layout.addLayout(row2_layout)
 
-        # 5. Translation Automation Toggles
+        # 7. Translation Automation Toggles
         trans_toggle_vbox = QVBoxLayout()
         
         self.chatlog_check = QCheckBox("Enable Inbound Chatlog Auto-Translation (Chatlog -> Overlay)")
@@ -385,7 +399,7 @@ class SettingsDialog(QDialog):
         trans_toggle_vbox.addLayout(outbound_row)
         layout.addLayout(trans_toggle_vbox)
 
-        # 6. Offline License Token Settings
+        # 8. Offline License Token Settings
         lic_vbox = QVBoxLayout()
         lic_vbox.setSpacing(6)
         
@@ -441,7 +455,6 @@ class SettingsDialog(QDialog):
         cancel_btn.setStyleSheet("background-color: #2D313B; color: #94A3B8; padding: 6px 16px; border-radius: 4px; border: 1px solid #373C47;")
         cancel_btn.clicked.connect(self.reject)
 
-        # Copyright & Credit label
         credit_label = QLabel("SARP Linggo Next • Open Source (MIT)")
         credit_label.setStyleSheet("color: #64748B; font-size: 10px; margin-top: 6px;")
         credit_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -451,6 +464,26 @@ class SettingsDialog(QDialog):
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
 
+    def on_provider_changed(self, provider_name):
+        preset = PRESET_PROVIDERS.get(provider_name, {})
+        ep = preset.get("endpoint", "")
+        if ep or provider_name != "Custom (OpenAI Compatible)":
+            self.endpoint_input.setText(ep)
+        self.populate_models(provider_name)
+
+    def populate_models(self, provider_name):
+        curr_text = self.model_combo.currentText()
+        self.model_combo.clear()
+        models = PRESET_PROVIDERS.get(provider_name, {}).get("models", [])
+        if models:
+            self.model_combo.addItems(models)
+            if curr_text in models:
+                self.model_combo.setCurrentText(curr_text)
+            else:
+                self.model_combo.setCurrentIndex(0)
+        else:
+            if curr_text:
+                self.model_combo.setEditText(curr_text)
 
     def copy_hwid_to_clipboard(self):
         from PyQt6.QtWidgets import QApplication
@@ -476,33 +509,36 @@ class SettingsDialog(QDialog):
 
     def check_live_rpd(self):
         if not self.translator:
-            self.rpd_status_label.setText("Sisa RPD: <b style='color: #EF4444;'>Engine Belum Siap</b>")
+            self.rpd_status_label.setText("Status: <b style='color: #EF4444;'>Engine Not Ready</b>")
             return
 
         api_key = self.key_input.text().strip()
-        if not api_key:
-            self.rpd_status_label.setText("Sisa RPD: <b style='color: #EF4444;'>API Key Belum Diisi</b>")
-            return
+        endpoint = self.endpoint_input.text().strip()
+        model_name = self.model_combo.currentText().strip()
 
         self.translator.set_api_key(api_key)
-        self.rpd_status_label.setText("<i>Memeriksa sisa RPD ke Groq...</i>")
+        self.translator.set_endpoint(endpoint)
+        self.translator.set_model(model_name)
+
+        self.rpd_status_label.setText("<i>Checking endpoint connection...</i>")
         from PyQt6.QtWidgets import QApplication
         QApplication.processEvents()
 
         success, msg, rem, lim, rst = self.translator.check_rpd_quota()
         if success:
-            lim_val = lim if lim else 1000
-            self.rpd_status_label.setText(f"Sisa RPD: <b style='color: #22C55E;'>{rem} / {lim_val}</b> (Reset: {rst if rst else 'Hari ini'})")
+            lim_val = lim if lim else "N/A"
+            rem_val = rem if rem is not None else "N/A"
+            self.rpd_status_label.setText(f"Status: <b style='color: #22C55E;'>{msg}</b> (RPD: {rem_val}/{lim_val})")
         else:
-            self.rpd_status_label.setText(f"Sisa RPD: <b style='color: #EF4444;'>{msg}</b>")
+            self.rpd_status_label.setText(f"Status: <b style='color: #EF4444;'>{msg}</b>")
 
     def auto_detect_key(self):
-        detected = self.config.detect_groq_api_key()
+        detected = self.config.detect_api_key()
         if detected:
             self.key_input.setText(detected)
-            show_noactivate_msgbox(self, "Success", "Found Groq API Key!", QMessageBox.Icon.Information)
+            show_noactivate_msgbox(self, "Success", "Found API Key!", QMessageBox.Icon.Information)
         else:
-            show_noactivate_msgbox(self, "Not Found", "Could not automatically find Groq API key file in Downloads.", QMessageBox.Icon.Warning)
+            show_noactivate_msgbox(self, "Not Found", "Could not automatically find API key file.", QMessageBox.Icon.Warning)
 
     def auto_detect_path(self):
         detected = self.config.detect_chatlog_path()
@@ -515,10 +551,12 @@ class SettingsDialog(QDialog):
             self.path_input.setText(filename)
 
     def save_settings(self):
-        self.config.set("groq_api_key", self.key_input.text().strip())
+        self.config.set("api_provider", self.provider_combo.currentText())
+        self.config.set("api_endpoint", self.endpoint_input.text().strip())
+        self.config.set("api_key", self.key_input.text().strip())
+        self.config.set("model_name", self.model_combo.currentText().strip())
         self.config.set("chatlog_path", self.path_input.text().strip())
         self.config.set("use_codsmp", self.codsmp_check.isChecked())
-        self.config.set("groq_model", "openai/gpt-oss-120b")
         self.config.set("target_language", self.lang_combo.currentText())
         self.config.set("auto_translate_ic", self.chatlog_check.isChecked())
         self.config.set("auto_translate_me_do", self.chatlog_check.isChecked())
@@ -546,10 +584,7 @@ class SettingsDialog(QDialog):
 
 
 class OverlayWindow(QWidget):
-    """
-    Main Frameless Modern Glassmorphism Overlay Widget for SA-RP Linggo.
-    Supports edge window resizing, auto-scrolling, and SAMP chatlog styling.
-    """
+    """Main Frameless Modern Glassmorphism Overlay Widget for SARP Linggo Next."""
     settings_saved_signal = pyqtSignal()
     RESIZE_MARGIN = 8
 
@@ -589,11 +624,9 @@ class OverlayWindow(QWidget):
         QTimer.singleShot(100, self.force_topmost)
 
     def force_topmost(self):
-        """Enforces Win32 TopMost and NOACTIVATE window flags for Exclusive Fullscreen Game Overlays."""
         if not self.isVisible() or getattr(self, 'is_settings_open', False):
             return
         try:
-            import ctypes
             from ctypes import wintypes
             hwnd = wintypes.HWND(int(self.winId()))
             user32 = ctypes.windll.user32
@@ -613,7 +646,6 @@ class OverlayWindow(QWidget):
             if not (curr & WS_EX_NOACTIVATE) or not (curr & WS_EX_TOPMOST):
                 user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, curr | WS_EX_TOPMOST | WS_EX_NOACTIVATE)
 
-            # SWP_NOMOVE (0x0002) | SWP_NOSIZE (0x0001) | SWP_NOACTIVATE (0x0010) | SWP_SHOWWINDOW (0x0040)
             user32.SetWindowPos(hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010 | 0x0040)
         except Exception as e:
             print(f"[Overlay Topmost Error] {e}", flush=True)
@@ -626,7 +658,6 @@ class OverlayWindow(QWidget):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Central Glass Widget
         self.central_widget = QWidget()
         self.central_widget.setObjectName("CentralWidget")
         self.central_widget.setStyleSheet(MAIN_STYLE)
@@ -636,33 +667,30 @@ class OverlayWindow(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Header Bar
         header_frame = QFrame()
         header_frame.setObjectName("HeaderFrame")
         header_layout = QHBoxLayout(header_frame)
         header_layout.setContentsMargins(8, 4, 8, 4)
         header_layout.setSpacing(6)
 
-        # Title with Vector SVG Logo
         logo_label = QLabel()
         logo_label.setPixmap(get_svg_icon("app_logo", size=18).pixmap(18, 18))
         
-        title_label = QLabel("SA-RP LINGGO")
+        title_label = QLabel("SARP LINGGO NEXT")
         title_label.setObjectName("AppTitle")
 
         self.status_label = QLabel("Active")
         self.status_label.setObjectName("StatusLabel")
 
-        # Vector Icon Control Buttons
         self.chat_toggle_btn = QPushButton("Chat: ON")
-        self.chat_toggle_btn.setToolTip("Click to toggle Inbound Chatlog Auto-Translation (ON/OFF)")
+        self.chat_toggle_btn.setToolTip("Toggle Inbound Chatlog Auto-Translation (ON/OFF)")
         self.chat_toggle_btn.setProperty("class", "HeaderIconBtn")
         self.chat_toggle_btn.setObjectName("ChatToggleBtn")
         self.chat_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: 600; min-width: 65px;")
         self.chat_toggle_btn.clicked.connect(self.toggle_chatlog_inbound)
 
         self.clip_toggle_btn = QPushButton("Clip: ON")
-        self.clip_toggle_btn.setToolTip("Click to toggle Outbound Clipboard Auto-Translation (ON/OFF)")
+        self.clip_toggle_btn.setToolTip("Toggle Outbound Clipboard Auto-Translation (ON/OFF)")
         self.clip_toggle_btn.setProperty("class", "HeaderIconBtn")
         self.clip_toggle_btn.setObjectName("ClipToggleBtn")
         self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: 600; min-width: 65px;")
@@ -671,7 +699,7 @@ class OverlayWindow(QWidget):
         self.lock_btn = QPushButton("Move Mode")
         self.lock_btn.setIcon(get_svg_icon("move", size=16))
         self.lock_btn.setIconSize(QSize(14, 14))
-        self.lock_btn.setToolTip("Click to toggle Lock / Click-Through mode")
+        self.lock_btn.setToolTip("Toggle Lock / Click-Through mode")
         self.lock_btn.setProperty("class", "HeaderIconBtn")
         self.lock_btn.setObjectName("LockBtn")
         self.lock_btn.setStyleSheet("padding: 2px 8px; font-size: 10px; font-weight: 600; min-width: 80px;")
@@ -720,7 +748,6 @@ class OverlayWindow(QWidget):
 
         main_layout.addWidget(header_frame)
 
-        # Chat Feed Scroll Area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_content = QWidget()
@@ -731,13 +758,11 @@ class OverlayWindow(QWidget):
 
         self.scroll_area.setWidget(self.scroll_content)
         
-        # Connect vertical scrollbar rangeChanged for 100% reliable auto-scroll
         vbar = self.scroll_area.verticalScrollBar()
         vbar.rangeChanged.connect(self.on_scroll_range_changed)
 
         main_layout.addWidget(self.scroll_area)
 
-        # Footer Row with QSizeGrip for smooth corner resizing
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(0, 0, 2, 2)
         footer_layout.addStretch()
@@ -749,7 +774,6 @@ class OverlayWindow(QWidget):
 
         outer_layout.addWidget(self.central_widget)
 
-        # Set saved geometry or defaults
         w = self.config.get("overlay_width", 440)
         h = self.config.get("overlay_height", 300)
         x = self.config.get("overlay_x", 100)
@@ -757,16 +781,14 @@ class OverlayWindow(QWidget):
         self.setGeometry(x, y, w, h)
 
     def on_scroll_range_changed(self, min_val, max_val):
-        """Auto scroll to bottom whenever new content expands the scrollable range."""
         if self.auto_scroll_enabled:
             self.scroll_area.verticalScrollBar().setValue(max_val)
 
     def init_system_tray(self):
-        """Creates a system tray icon in Windows notification area."""
         try:
             self.tray_icon = QSystemTrayIcon(self)
             self.tray_icon.setIcon(create_app_icon())
-            self.tray_icon.setToolTip("SA-RP Linggo Overlay")
+            self.tray_icon.setToolTip("SARP Linggo Next Overlay")
             
             tray_menu = QMenu()
             
@@ -803,14 +825,13 @@ class OverlayWindow(QWidget):
             self.toggle_visibility()
 
     def toggle_visibility(self):
-        """Toggles complete visibility (Total Hide / Show) of the Overlay Window."""
         try:
             if self.isVisible():
                 self.hide()
                 if hasattr(self, 'tray_icon'):
                     self.tray_icon.showMessage(
-                        "SA-RP Linggo",
-                        "Overlay tersembunyi (Total Hide).\nTekan hotkey atau klik tray icon untuk memunculkan kembali.",
+                        "SARP Linggo Next",
+                        "Overlay is hidden. Press toggle hotkey or click tray icon to restore.",
                         QSystemTrayIcon.MessageIcon.Information,
                         2000
                     )
@@ -863,8 +884,8 @@ class OverlayWindow(QWidget):
             self.clip_toggle_btn.setStyleSheet("padding: 2px 6px; font-size: 10px; font-weight: bold; background-color: #334155; color: #94A3B8; border-radius: 3px;")
             self.clip_toggle_btn.setToolTip("Clipboard Translation: DISABLED (Click to turn ON)")
 
-        api_key = self.config.get("groq_api_key", "")
-        if not api_key:
+        api_key = self.config.get("api_key", "")
+        if not api_key and "localhost" not in self.config.get("api_endpoint", ""):
             self.set_status("No API Key", "#F59E0B")
         else:
             self.set_status("Active", "#10B981")
@@ -880,7 +901,6 @@ class OverlayWindow(QWidget):
         count = self.feed_layout.count()
         self.feed_layout.insertWidget(count - 1, card)
 
-        # Force scroll to bottom immediately and after layout updates
         vbar = self.scroll_area.verticalScrollBar()
         vbar.setValue(vbar.maximum())
         QTimer.singleShot(30, lambda: vbar.setValue(vbar.maximum()))
@@ -918,7 +938,6 @@ class OverlayWindow(QWidget):
         self.lock_btn.style().polish(self.lock_btn)
 
     def set_click_through(self, enable):
-        """Sets Windows OS click-through transparent mode using Win32 API."""
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
@@ -978,7 +997,6 @@ class OverlayWindow(QWidget):
         self.close_app()
         event.accept()
 
-    # Native Window Dragging & Edge Resizing Logic
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and not self.is_locked:
             if self.is_on_resize_area(event.position()):

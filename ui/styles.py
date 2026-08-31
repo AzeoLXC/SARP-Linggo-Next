@@ -1,5 +1,5 @@
 MAIN_STYLE = """
-/* SA-RP Linggo Professional Matte Slate Gray Theme */
+/* SARP Linggo Next Professional Matte Slate Gray Theme */
 QWidget#CentralWidget {
     background-color: rgba(27, 29, 34, 0.94);
     border: 1px solid rgba(60, 64, 75, 0.85);

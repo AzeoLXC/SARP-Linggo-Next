@@ -1,7 +1,6 @@
 import os
 import json
 import glob
-
 import sys
 
 if getattr(sys, 'frozen', False):
@@ -12,10 +11,13 @@ else:
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 DEFAULT_CONFIG = {
-    "groq_api_key": "",
+    "api_provider": "Groq",
+    "api_endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "api_key": "",
+    "model_name": "openai/gpt-oss-120b",
+    "custom_headers": {},
     "chatlog_path": "",
     "target_language": "Indonesian",
-    "groq_model": "openai/gpt-oss-120b",
     "outbound_style": "Standard English",
     "use_codsmp": True,
     "enable_clipboard_outbound": True,
@@ -31,9 +33,72 @@ DEFAULT_CONFIG = {
     "max_feed_items": 50,
     "overlay_x": 100,
     "overlay_y": 100,
-    "overlay_width": 420,
+    "overlay_width": 440,
     "overlay_height": 320
 }
+
+PRESET_PROVIDERS = {
+    "Groq": {
+        "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+        "models": [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768"
+        ],
+        "stt_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "stt_model": "whisper-large-v3-turbo"
+    },
+    "OpenAI": {
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "models": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-4.1-mini",
+            "gpt-4.1-turbo"
+        ],
+        "stt_endpoint": "https://api.openai.com/v1/audio/transcriptions",
+        "stt_model": "whisper-1"
+    },
+    "DeepSeek": {
+        "endpoint": "https://api.deepseek.com/chat/completions",
+        "models": [
+            "deepseek-chat",
+            "deepseek-reasoner"
+        ],
+        "stt_endpoint": "",
+        "stt_model": ""
+    },
+    "OpenRouter": {
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "models": [
+            "openai/gpt-4o-mini",
+            "meta-llama/llama-3.3-70b-instruct",
+            "deepseek/deepseek-chat"
+        ],
+        "stt_endpoint": "",
+        "stt_model": ""
+    },
+    "Ollama (Local)": {
+        "endpoint": "http://localhost:11434/v1/chat/completions",
+        "models": [
+            "llama3.2",
+            "llama3.1",
+            "qwen2.5",
+            "mistral"
+        ],
+        "stt_endpoint": "",
+        "stt_model": ""
+    },
+    "Custom (OpenAI Compatible)": {
+        "endpoint": "",
+        "models": [],
+        "stt_endpoint": "",
+        "stt_model": ""
+    }
+}
+
 
 class ConfigManager:
     """Manages application configuration, persistence, and auto-detection."""
@@ -53,16 +118,22 @@ class ConfigManager:
             except Exception as e:
                 print(f"[Config] Error loading config file: {e}")
 
+        # Migration from old keys
+        if "groq_api_key" in self.data and not self.data.get("api_key"):
+            self.data["api_key"] = self.data.pop("groq_api_key")
+        if "groq_model" in self.data and not self.data.get("model_name"):
+            self.data["model_name"] = self.data.pop("groq_model")
+
         # Auto-detect missing values
         if not self.data.get("chatlog_path") or not os.path.exists(self.data.get("chatlog_path", "")):
             detected_path = self.detect_chatlog_path()
             if detected_path:
                 self.data["chatlog_path"] = detected_path
 
-        if not self.data.get("groq_api_key"):
-            detected_key = self.detect_groq_api_key()
+        if not self.data.get("api_key"):
+            detected_key = self.detect_api_key()
             if detected_key:
-                self.data["groq_api_key"] = detected_key
+                self.data["api_key"] = detected_key
 
         self.save()
 
@@ -94,28 +165,27 @@ class ConfigManager:
             if os.path.exists(path):
                 print(f"[Config] Detected SAMP chatlog path: {path}")
                 return path
-        return possible_paths[0]  # Fallback to standard path even if file doesn't exist yet
+        return possible_paths[0]
 
     @staticmethod
-    def detect_groq_api_key():
-        """Detects Groq API key from environment variable or Downloads directory."""
-        # 1. Environment variable
-        env_key = os.environ.get("GROQ_API_KEY", "").strip()
-        if env_key.startswith("gsk_"):
+    def detect_api_key():
+        """Detects API key from environment variable or Downloads directory."""
+        env_key = os.environ.get("GROQ_API_KEY", "").strip() or os.environ.get("OPENAI_API_KEY", "").strip()
+        if env_key:
             return env_key
 
-        # 2. Check Downloads folder for gsk_*.txt file
         user_profile = os.environ.get("USERPROFILE", "")
         downloads_dir = os.path.join(user_profile, "Downloads")
         if os.path.exists(downloads_dir):
-            key_files = glob.glob(os.path.join(downloads_dir, "gsk_*.txt"))
-            for key_file in key_files:
-                try:
-                    with open(key_file, "r", encoding="utf-8") as f:
-                        key_content = f.read().strip()
-                        if key_content.startswith("gsk_"):
-                            print(f"[Config] Auto-detected Groq API Key from {key_file}")
-                            return key_content
-                except Exception:
-                    pass
+            for pattern in ["gsk_*.txt", "sk_*.txt", "key_*.txt"]:
+                key_files = glob.glob(os.path.join(downloads_dir, pattern))
+                for key_file in key_files:
+                    try:
+                        with open(key_file, "r", encoding="utf-8") as f:
+                            content = f.read().strip()
+                            if content:
+                                print(f"[Config] Auto-detected API Key from {key_file}")
+                                return content
+                    except Exception:
+                        pass
         return ""
